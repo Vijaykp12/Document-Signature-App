@@ -6,7 +6,8 @@ import {loginUser} from '../../../lib/api';
 
 export default function LoginPage() {
     const router = useRouter();
-
+    
+    const [errorState, setErrorState] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
@@ -17,10 +18,31 @@ export default function LoginPage() {
         try { 
             setLoading(true);
 
-            const data: any = loginUser(email, password);
+            const data: any = await loginUser(email, password);
 
-            localStorage.setItem("token", data.access_token);
-            router.push("/dashboard");
+            console.log("Login response:", data);
+
+            if (data.success && data.data) {
+                
+                const token = data.data?.access_token;
+                if(token) {
+                    localStorage.setItem("token", token);
+
+                    const verificationCheck = localStorage.getItem("token");
+
+                    if(verificationCheck && verificationCheck !== "undefined" && verificationCheck !== "null") {
+                        router.push("/dashboard/documents");
+                    }
+                    else{
+                        setTimeout(() => {
+                            router.push("/dashboard/documents");
+                        },100)
+                    }
+                }
+            } else {
+                setErrorState(data.error);
+                alert("Login Failed: " + data.error);
+            }
         }
         catch(error) {
             console.error(error);
@@ -34,7 +56,7 @@ export default function LoginPage() {
     return (
         <>
             <div className = "bg-black min-h-screen flex items-center justify-center">
-                <form onSubmit = {handleSubmit} className = "bg-cyan-500/20 p-6 border-t-5 rounded-lg border-cyan-500 shadow-lg w-full max-w-sm">
+                <form onSubmit = {handleSubmit} className = "bg-cyan-500/20 p-6 border-t-10 rounded-t-2xl border-cyan-500 shadow-lg w-full max-w-sm">
                     <h1 className = "text-2xl font-bold mb-4 text-cyan-500">Login</h1>
 
                     <input name = "email"

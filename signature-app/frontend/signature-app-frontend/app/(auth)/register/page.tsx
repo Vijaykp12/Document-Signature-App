@@ -20,8 +20,7 @@ export default function RegisterPage() {
 
             const data: any = registerUser(name, email, password);
 
-            localStorage.setItem("token", data.access_token);
-            router.push("/dashboard");
+            router.push("/dashboard/documents");
         }
         catch(error) {
             console.error(error);
@@ -35,7 +34,7 @@ export default function RegisterPage() {
     return (
         <>
             <div className = "bg-black min-h-screen flex items-center justify-center">
-                <form onSubmit = {handleSubmit} className = "bg-cyan-500/20 p-6 border-t-5 rounded-lg border-cyan-500 shadow-lg w-full max-w-sm">
+                <form onSubmit = {handleSubmit} className = "bg-cyan-500/20 p-6 border-t-10 rounded-t-2xl border-cyan-500 shadow-lg w-full max-w-sm">
                     <h1 className = "text-2xl font-bold mb-4 text-cyan-500">Sign Up</h1>
 
                     <input name = "name"

@@ -4,6 +4,7 @@
 venv/
 .venv/
 env/
+uploads/
 __pycache__/
 *.py[cod]
 *.pyo
