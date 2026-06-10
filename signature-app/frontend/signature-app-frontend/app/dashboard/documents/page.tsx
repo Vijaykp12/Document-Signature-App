@@ -11,15 +11,28 @@ from "./components/DocumentDetails";
 
 import DocumentList
 from "./components/DocumentList";
+import PDFPreview from './components/PDFPreview';
+
+interface Document {
+    id: number;
+    filename: string;
+    filepath: string;
+    thumbnail: string | null;
+}
+
+interface PreviewProps {
+    filepath: string;
+    doc_id: number;
+}
 
 export default function Dashboard() {
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
-    const [documents, setDocuments] = useState([]);
+    const [documents, setDocuments] = useState<Document[]>([]);
     const [loading, setLoading] = useState(true);
+    const [previewDoc, setPreviewDoc] = useState<PreviewProps | null>(null);
     const router = useRouter();
 
-    useEffect(() => {
-        const fetchDocuments = async () => {
+    const fetchDocuments = async () => {
             const result = await getDocuments();
             if (result.success) {
                 setDocuments(result.data);
@@ -29,6 +42,11 @@ export default function Dashboard() {
             setLoading(false);
         };
 
+    const handleDeleteDocument = (id: number) => {
+        setDocuments((prevDocs) => prevDocs.filter((doc) => doc.id !== id));
+    }
+
+    useEffect(() => {
         const token = localStorage.getItem("token");
         console.log("Attempting to fetch documents with token:", token);
     
@@ -40,7 +58,7 @@ export default function Dashboard() {
         }
 
         fetchDocuments();
-    }, []);
+    }, [selectedFile, router]);
 
     if (loading) {
         return <p>Loading...</p>;
@@ -58,17 +76,20 @@ export default function Dashboard() {
                 />
 
                 <DocumentDetails
-                    selectedFile={
-                        selectedFile
-                    }
+                    selectedFile={selectedFile}
+                    fetchDocuments = {fetchDocuments}
+                    setSelectedFile={setSelectedFile}
                 />
 
             </div>
 
-            <div className="flex-1 overflow-auto min-h-[200px]">
-                <DocumentList documents={documents} />
+            <div className="mt-60 mb-5">
+                <DocumentList documents={documents}  onDelete={handleDeleteDocument} onPreview={setPreviewDoc}/>
             </div> 
-
+            <PDFPreview
+                previewDoc={previewDoc}
+                closePreview={() => setPreviewDoc(null)}
+            />
         </div>
     );
 }

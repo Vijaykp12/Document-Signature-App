@@ -8,4 +8,5 @@ class Document(Base):
     filename = Column(String, nullable=False)
     filepath = Column(String, nullable=False)
     owner_id = Column(Integer, ForeignKey("users.id"))
+    thumbnail_path = Column(String, nullable=True)
 
