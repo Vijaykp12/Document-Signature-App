@@ -8,6 +8,7 @@ export default function RegisterPage() {
     const router = useRouter();
 
     const [loading, setLoading] = useState(false);
+    const [message, setMessage] = useState<string | null>(null);
     const [name, setName] = useState("");
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
@@ -17,14 +18,21 @@ export default function RegisterPage() {
 
         try { 
             setLoading(true);
+            setMessage(null);
 
-            const data: any = registerUser(name, email, password);
+            const response = await registerUser(name, email, password);
 
-            router.push("/dashboard/documents");
+            if (response.success) {
+                // Redirect only after the request succeeds so registration errors stay visible.
+                setMessage("Registration successful. Redirecting to login...");
+                router.push("/login");
+            } else {
+                setMessage(response.message);
+            }
         }
         catch(error) {
             console.error(error);
-            alert("Registration Failed");
+            setMessage("Registration Failed");
         }
         finally {
             setLoading(false);
@@ -36,6 +44,13 @@ export default function RegisterPage() {
             <div className = "bg-black min-h-screen flex items-center justify-center">
                 <form onSubmit = {handleSubmit} className = "bg-cyan-500/20 p-6 border-t-10 rounded-t-2xl border-cyan-500 shadow-lg w-full max-w-sm">
                     <h1 className = "text-2xl font-bold mb-4 text-cyan-500">Sign Up</h1>
+
+                    {/* Show a direct registration result so users can see success or failure without a toast. */}
+                    {message ? (
+                        <p className="mb-4 rounded-lg border border-cyan-400/40 bg-cyan-500/10 px-3 py-2 text-sm text-cyan-100">
+                            {message}
+                        </p>
+                    ) : null}
 
                     <input name = "name"
                         type = "text"

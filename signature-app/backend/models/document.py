@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, ForeignKey
+from sqlalchemy import Column, Integer, String, ForeignKey, Boolean
 from services.database import Base
 
 class Document(Base):
@@ -9,4 +9,6 @@ class Document(Base):
     filepath = Column(String, nullable=False)
     owner_id = Column(Integer, ForeignKey("users.id"))
     thumbnail_path = Column(String, nullable=True)
+    signed_filepath = Column(String, nullable=True)
+    is_signed = Column(Boolean, default=False)
 

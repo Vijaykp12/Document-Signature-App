@@ -1,134 +1,96 @@
 const API_URL = "https://vigilant-enigma-7vr96xxjqv7rfpvr-8000.app.github.dev";
 
-export async function loginUser(
-    email: string, 
-    password: string
-) {
-    try{
-        const response = await fetch(`${API_URL}/auth/login`,
-        {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify({email, password}),
-        }
-        )
+import { getToken } from "./auth";
 
-        if(!response.ok) {
+type ApiResult<T> =
+    | { success: true; data: T }
+    | { success: false; message: string };
+
+async function requestJson<T>(path: string, init: RequestInit = {}): Promise<ApiResult<T>> {
+    try {
+        const response = await fetch(`${API_URL}${path}`, init);
+
+        if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
             return {
-                "success": false,
-                "message": errorData.detail || "Login Failed"
-            }
+                success: false,
+                message: errorData.detail || "Request failed",
+            };
         }
+
         const data = await response.json();
+        return { success: true, data };
+    } catch (error) {
+        console.error("Network error:", error);
         return {
-            "success": true,
-            "data": data
-        }
+            success: false,
+            message:
+                "Unable to connect to the server. Please check if your backend server is running and set to Public.",
+        };
     }
-    catch(error){
-        console.error("Network error:" , error);
-        return {
-            "success": false,
-            "message": "Unable to connect to the server. Please check if your backend server is running and set to Public."
-        }
-    }
+}
+
+export async function loginUser(
+    email: string,
+    password: string
+): Promise<ApiResult<{ access_token: string; token_type: string }>> {
+    // Reuse the shared request helper so login and register report errors the same way.
+    return requestJson("/auth/login", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email, password }),
+    });
 }
 
 export async function registerUser(
     name: string,
     email: string,
     password: string
-) {
-    try{
-        const response = await fetch(`${API_URL}/auth/register`,
-        {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify({name, email, password}),
-        }
-        )
-
-        if(!response.ok) {
-            const errorData = await response.json().catch(() => ({}));
-            return {
-                "success": false,
-                "message": errorData.detail || "Registration Failed"
-            }
-        }
-
-        const data = await response.json();
-        return {
-            "success": true,
-            "data": data
-        }
-    }
-
-    catch(error) {
-        console.error("Network error:" , error);
-        return {
-            "success": false,
-            "message": "Unable to connect to the server. Please check if your backend server is running and set to Public."
-        }
-    }
+): Promise<ApiResult<{ message: string }>> {
+    // Reuse the shared request helper so registration follows the same response contract as login.
+    return requestJson("/auth/register", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ name, email, password }),
+    });
 }
 
-export async function getDocuments() {
-    const token = localStorage.getItem("token");
+export async function getDocuments(): Promise<ApiResult<Array<{
+    id: number;
+    filename: string;
+    filepath: string;
+    thumbnail: string | null;
+}>>> {
+    const token = getToken();
 
-    console.log("Attempting to fetch documents with token: 2", token);
-
-    if (!token || token === "undefined" || token === "null") {
+    if (!token) {
         return {
             success: false,
-            message: "Session expired or invalid. Please log out and log in again."
+            message: "Session expired or invalid. Please log out and log in again.",
         };
     }
 
-    try {
-        const response = await fetch(`${API_URL}/documents/my-documents`, {
-            headers: {
-                "Authorization" : `Bearer ${token}`,
-                "Content-Type": "application/json",
-            }
-        })
-
-        if(!response.ok) {
-            const errorData = await response.json().catch(() => ({}));
-            return {
-                "success": false,
-                "message": errorData.detail || "Failed to fetch documents"
-            }
-        }
-
-        const data = await response.json();
-        return {
-            "success": true,
-            "data": data
-        }
-    }
-    catch(error) {
-        console.error("Network error:" , error);
-        return {
-            "success": false,
-            "message": "Unable to connect to the server. Please check if your backend server is running and set to Public."
-        }
-    }
+    return requestJson("/documents/my-documents", {
+        headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+        },
+    });
 }
 
 export async function uploadDocument(
     file: File | null,
 ) {
-    const token = localStorage.getItem("token");
+    const token = getToken();
 
-    if (!token || token === "undefined" || token === "null") {
+    if (!token) {
         return {
             success: false,
-            message: "Session expired or invalid. Please log out and log in again."
+            message: "Session expired or invalid. Please log out and log in again.",
         };
     }
 
@@ -141,168 +103,74 @@ export async function uploadDocument(
 
     const formData = new FormData();
     formData.append("file", file);
-    try {
-        const response = await fetch(`${API_URL}/documents/upload`, {
-            method: "POST",
-            headers: {
-                "Authorization" : `Bearer ${token}`
-            },
-            body: formData
-        })
 
-        if(!response.ok) {
-            const errorData = await response.json().catch(() => ({}));
-            return {
-                "success": false,
-                "message": errorData.detail || "Failed to upload document"
-            }
-        }
-
-        const data = await response.json();
-        return {
-            "success": true,
-            "data": data
-        }
-    }
-    catch(error) {
-        console.error("Network error:" , error);
-        return {
-            "success": false,
-            "message": "Unable to connect to the server. Please check if your backend server is running and set to Public."
-        }
-    }
+    // Keep file uploads on the same request path so auth failures and server errors behave consistently.
+    return requestJson("/documents/upload", {
+        method: "POST",
+        headers: {
+            Authorization: `Bearer ${token}`,
+        },
+        body: formData,
+    });
 }
 
 export async function deleteDocument(documentId: number) {
-    const token = localStorage.getItem("token");
+    const token = getToken();
 
-    console.log("Attempting to delete document with ID: 2", token);
-
-    if (!token || token === "undefined" || token === "null") {
+    if (!token) {
         return {
             success: false,
-            message: "Session expired or invalid. Please log out and log in again."
+            message: "Session expired or invalid. Please log out and log in again.",
         };
     }
 
-    try {
-        const response = await fetch(`${API_URL}/documents/${documentId}`, {
-            method: "DELETE",
-            headers: {
-                "Authorization" : `Bearer ${token}`,
-                "Content-Type": "application/json",
-            }
-        })
-
-        if(!response.ok) {
-            const errorData = await response.json().catch(() => ({}));
-            return {
-                "success": false,
-                "message": errorData.detail || "Failed to delete document"
-            }
-        }
-
-        const data = await response.json();
-        return {
-            "success": true,
-            "data": data
-        }
-    }
-    catch(error) {
-        console.error("Network error:" , error);
-        return {
-            "success": false,
-            "message": "Unable to connect to the server. Please check if your backend server is running and set to Public."
-        }
-    }
+    return requestJson(`/documents/${documentId}`, {
+        method: "DELETE",
+        headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+        },
+    });
 }
 
 
 export async function mySignatures() {
-    const token = localStorage.getItem("token");
+    const token = getToken();
 
-    if (!token || token === "undefined" || token === "null") {
+    if (!token) {
         return {
             success: false,
-            message: "Session expired or invalid. Please log out and log in again."
+            message: "Session expired or invalid. Please log out and log in again.",
         };
     }
 
-    try {
-        const response = await fetch(`${API_URL}/signatures/my-signatures`, {
-            method: "GET",
-            headers: {
-                "Authorization" : `Bearer ${token}`,
-                "Content-Type": "application/json",
-            }
-        })
-
-        if(!response.ok) {
-            const errorData = await response.json().catch(() => ({}));
-            return {
-                "success": false,
-                "message": errorData.detail || "Failed to retrieve signatures"
-            }
-        }
-
-        const data = await response.json();
-        return {
-            "success": true,
-            "data": data
-        }
-    }
-    catch(error) {
-        console.error("Network error:" , error);
-        return {
-            "success": false,
-            "message": "Unable to connect to the server. Please check if your backend server is running and set to Public."
-        }
-    }
+    return requestJson("/signatures/my-signatures", {
+        method: "GET",
+        headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+        },
+    });
 }
 
 
 export async function deleteSignature(signatureId: number) {
-    const token = localStorage.getItem("token");
+    const token = getToken();
 
-    console.log("Attempting to delete signature with ID: ", signatureId, token);
-
-    if (!token || token === "undefined" || token === "null") {
+    if (!token) {
         return {
             success: false,
-            message: "Session expired or invalid. Please log out and log in again."
+            message: "Session expired or invalid. Please log out and log in again.",
         };
     }
 
-    try {
-        const response = await fetch(`${API_URL}/signatures/${signatureId}`, {
-            method: "DELETE",
-            headers: {
-                "Authorization" : `Bearer ${token}`,
-                "Content-Type": "application/json",
-            }
-        })
-
-        if(!response.ok) {
-            const errorData = await response.json().catch(() => ({}));
-            return {
-                "success": false,
-                "message": errorData.detail || "Failed to delete signature"
-            }
-        }
-
-        const data = await response.json();
-        return {
-            "success": true,
-            "data": data
-        }
-    }
-    catch(error) {
-        console.error("Network error:" , error);
-        return {
-            "success": false,
-            "message": "Unable to connect to the server. Please check if your backend server is running and set to Public."
-        }
-    }
+    return requestJson(`/signatures/delete/${signatureId}`, {
+        method: "DELETE",
+        headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+        },
+    });
 }
 
 interface CreateSignaturePayload {
@@ -315,44 +183,47 @@ interface CreateSignaturePayload {
 export async function createSignature(
     payload: CreateSignaturePayload
 ) {
-    const token = localStorage.getItem("token");
+    const token = getToken();
 
-    if(!token || token === "undefined" || token === "null") {
+    if (!token) {
         return {
             success: false,
-            message: "Session expired or invalid. Please log out and log in again."
+            message: "Session expired or invalid. Please log out and log in again.",
         };
     }
 
-    try{
-        const response = await fetch(`${API_URL}/signatures/place-signature`, {
-            method: "POST",
-            headers: {
-                "Authorization" : `Bearer ${token}`,
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify(payload)
-        })
+    return requestJson("/signatures/place-signature", {
+        method: "POST",
+        headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+    });
+}
 
-        if(!response.ok) {
-            const errorData = await response.json().catch(() => ({}));
-            return {
-                "success": false,
-                "message": errorData.detail || "Failed to place signature"
-            }
-        }
+export async function generateSignedDocument(documentId: number) {
+    const token = getToken();
 
-        const data = await response.json();
+    if (!token) {
         return {
-            "success": true,
-            "data": data
-        }
+            success: false,
+            message: "Session expired or invalid. Please log out and log in again.",
+        };
     }
-    catch(error) {
-        console.error("Network error:" , error);
-        return {
-            "success": false,
-            "message": "Unable to connect to the server. Please check if your backend server is running and set to Public."
-        }
-    }
+
+    return requestJson(`/documents/generate-signed/${documentId}`, {
+        method: "POST",
+        headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+        },
+    });
+}
+
+export async function downloadSignedDocument(documentId: number) {
+    // The backend streams the file directly, so the browser download can stay simple here.
+    getToken();
+    const downloadUrl = `${API_URL}/documents/download-signed/${documentId}`;
+    window.open(downloadUrl, "_blank");
 }

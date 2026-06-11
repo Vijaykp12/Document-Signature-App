@@ -1,6 +1,5 @@
 "use client" 
 
-import {useRouter} from "next/navigation"
 import Link from "next/link";
 
 export default function AuthLayout({
@@ -8,7 +7,7 @@ export default function AuthLayout({
 }: {
     children: React.ReactNode;
 }) {
-    const router = useRouter();
+
     return (
         <div>
             <header className="flex justify-between items-center p-4 bg-cyan-500">

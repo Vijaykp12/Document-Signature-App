@@ -1,7 +1,6 @@
-import Image from "next/image";
+import { redirect } from "next/navigation";
 
 export default function Home() {
-  return (
-    <h1> Bro </h1>
-  );
+  // Send the root route to login because this app does not have a public landing page.
+  redirect("/login");
 }

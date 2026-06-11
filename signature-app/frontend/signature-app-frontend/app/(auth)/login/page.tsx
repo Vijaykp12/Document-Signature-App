@@ -17,36 +17,23 @@ export default function LoginPage() {
 
         try { 
             setLoading(true);
+            setErrorState(null);
 
-            const data: any = await loginUser(email, password);
+            const response = await loginUser(email, password);
 
-            console.log("Login response:", data);
+            if (response.success) {
+                const token = response.data.access_token;
 
-            if (data.success && data.data) {
-                
-                const token = data.data?.access_token;
-                if(token) {
-                    localStorage.setItem("token", token);
-
-                    const verificationCheck = localStorage.getItem("token");
-
-                    if(verificationCheck && verificationCheck !== "undefined" && verificationCheck !== "null") {
-                        router.push("/dashboard/documents");
-                    }
-                    else{
-                        setTimeout(() => {
-                            router.push("/dashboard/documents");
-                        },100)
-                    }
-                }
+                // Only navigate after the backend returns a valid session token.
+                localStorage.setItem("token", token);
+                router.push("/dashboard/documents");
             } else {
-                setErrorState(data.error);
-                alert("Login Failed: " + data.error);
+                setErrorState(response.message);
             }
         }
         catch(error) {
             console.error(error);
-            alert("Login Failed");
+            setErrorState("Login Failed");
         }
         finally {
             setLoading(false);
@@ -58,6 +45,13 @@ export default function LoginPage() {
             <div className = "bg-black min-h-screen flex items-center justify-center">
                 <form onSubmit = {handleSubmit} className = "bg-cyan-500/20 p-6 border-t-10 rounded-t-2xl border-cyan-500 shadow-lg w-full max-w-sm">
                     <h1 className = "text-2xl font-bold mb-4 text-cyan-500">Login</h1>
+
+                    {/* Keep login failures visible in the form so users can recover without guessing. */}
+                    {errorState ? (
+                        <p className="mb-4 rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-200">
+                            {errorState}
+                        </p>
+                    ) : null}
 
                     <input name = "email"
                         type = "email"

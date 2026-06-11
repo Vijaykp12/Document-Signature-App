@@ -23,10 +23,17 @@ app.mount(
     name="thumbnails"
 )
 
+app.mount(
+    "/signed_documents",
+    StaticFiles(directory="signed_documents"),
+    name="signed_documents"
+)
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins = [
-        "https://vigilant-enigma-7vr96xxjqv7rfpvr-3000.app.github.dev"
+        "https://vigilant-enigma-7vr96xxjqv7rfpvr-3000.app.github.dev",
+        "http://localhost:3000"
     ],
     allow_credentials = True,
     allow_methods = ["*"],

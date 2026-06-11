@@ -3,7 +3,7 @@
 
 import { useRef, useState, useEffect } from "react";
 import { Document, Page, pdfjs } from "react-pdf";
-import {createSignature, deleteSignature, mySignatures} from "../../../../lib/api";
+import {createSignature, deleteSignature, generateSignedDocument, mySignatures} from "../../../../lib/api";
 
 const BASE_URL =
     "https://vigilant-enigma-7vr96xxjqv7rfpvr-8000.app.github.dev";
@@ -60,24 +60,27 @@ export default function PDFPreview({
 
     useEffect(() => {
         const fetchSignatures = async () => {
+            if(!previewDoc) return;
             const signs = await mySignatures();
 
             if(!signs) return;
 
-            const signData = signs.data.map((sig:any) => (
-                {   
-                    id: sig.id,
-                    document_id: sig.document_id,
-                    x: sig.x,
-                    y: sig.y,
-                    page: sig.page
-                }
-            ))
+            const signData = signs.data
+                .filter((sig:any) => sig.document_id === previewDoc?.doc_id)
+                .map((sig:any) => (
+                    {   
+                        id: sig.id,
+                        document_id: sig.document_id,
+                        x: sig.x,
+                        y: sig.y,
+                        page: sig.page
+                    }
+                ))
             setSignatures(signData);
             setCurrentSign(signData);
         }
         fetchSignatures();
-    },[])
+    },[previewDoc?.doc_id]);
 
 
     useEffect(() => {
@@ -88,11 +91,8 @@ export default function PDFPreview({
         currentSignRef.current = currectSign;
     }, [currectSign]);
 
-    useEffect(() => {
-
-        return () => {
-
-            const createdSigns =
+    const saveSessionSignatures = async() => {
+        const createdSigns =
                 signaturesRef.current.filter(
                     (sig) =>
                         !currentSignRef.current.some(
@@ -137,13 +137,40 @@ export default function PDFPreview({
             deletedSigns.forEach((sig) => {
                 deleteSignature(sig.id);
             });
+        }
 
+    useEffect(() => {
+
+        return () => {
+            saveSessionSignatures();
         };
 
     }, []);
+
     
     if (!previewDoc) return null;
 
+    const handleGenerateSignedDocument = async() => {
+        try {
+            await saveSessionSignatures();
+            const response = await generateSignedDocument(previewDoc.doc_id);
+
+            if(response.success){
+                console.log("Signed document generated successfully");
+                alert("Signed document generated successfully");
+            }
+            else {
+                console.error("Failed to generate signed document:", response.message);
+                alert("Failed to generate signed document: " + response.message);
+            }
+        }
+        catch(error){
+            console.error("Network error while generating signed document:", error);
+            alert("Network error while generating signed document");
+        }
+    }
+
+    
     const onDocumentLoadSuccess = ({ numPages }: { numPages: number }) => {
         setNumPages(numPages);
         setPageNumber(1);
@@ -234,47 +261,38 @@ export default function PDFPreview({
             </div>
             <div className="flex items-center justify-center gap-4 py-4 border-b border-cyan-900/30">
 
-            <button
-                disabled={pageNumber <= 1}
-                onClick={() => setPageNumber((p) => p - 1)}
-                className="
-                    px-4 py-2
-                    bg-cyan-500
-                    rounded-lg
-                    disabled:bg-gray-700
-                    disabled:cursor-not-allowed
-                "
-            >
-                ← Previous
-            </button>
+           
 
             <span className="text-white">
                 Page {pageNumber} of {numPages}
             </span>
 
-            <button
-                disabled={pageNumber >= numPages}
-                onClick={() => setPageNumber((p) => p + 1)}
-                className="
-                    px-4 py-2
-                    bg-cyan-500
-                    rounded-lg
-                    disabled:bg-gray-700
-                    disabled:cursor-not-allowed
-                "
-            >
-                Next →
-            </button>
+            
 
         </div>
 
            <div className="
                 flex
                 justify-center
-                items-start
+                items-center
                 overflow-hidden
                 p-4
             ">
+                 <button
+                    disabled={pageNumber <= 1}
+                    onClick={() => setPageNumber((p) => p - 1)}
+                    className="
+                        px-4 py-2
+                        bg-cyan-500
+                        h-[600px]
+                        w-[50px]
+                        rounded-lg
+                        disabled:bg-gray-700
+                        disabled:cursor-not-allowed
+                    "
+                >
+                    ← 
+                </button>
                 <Document
                     file={`${BASE_URL}/${previewDoc.filepath}`}
                     onLoadSuccess={onDocumentLoadSuccess}
@@ -334,7 +352,17 @@ export default function PDFPreview({
                     </div>
                     
                 </Document>
+                <button
+                    disabled={pageNumber >= numPages}
+                    onClick={() => setPageNumber((p) => p + 1)}
+                    className="px-4 py-2 bg-cyan-500 h-[600px] w-[50px] rounded-lg disabled:bg-gray-700 disabled:cursor-not-allowed"
+                >
+                    →
+                </button>
             </div>
+            <button className="block m-auto px-4 py-2 bg-cyan-500 text-white rounded-lg hover:bg-blue-600 transition-colors" onClick={handleGenerateSignedDocument}>
+                Generate Signed Document
+            </button>
         </div>
     );
 }

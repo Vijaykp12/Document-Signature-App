@@ -1,10 +1,9 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from models.signature import Signature
 from schemas.signature import SignatureCreate
 from services.database import get_db
 from middleware.auth import get_current_user
-from fastapi import Depends
 from models.user import User
 
 router = APIRouter()
@@ -61,7 +60,7 @@ def get_my_signatures(
         for sig in signatures
     ]
 
-@router.delete("/{signature_id}")
+@router.delete("/delete/{signature_id}")
 def delete_signature(
     signature_id: int,
     current_user: str = Depends(get_current_user),
