@@ -6,7 +6,7 @@ class Signature(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     document_id = Column(Integer, ForeignKey("documents.id"), nullable=False)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     page = Column(Integer, nullable=False)
     x = Column(Integer, nullable=False)
     y = Column(Integer, nullable=False)

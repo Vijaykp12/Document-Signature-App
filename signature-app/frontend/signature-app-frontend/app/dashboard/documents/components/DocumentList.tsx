@@ -9,12 +9,14 @@ interface DocumentListProps {
     documents: DocumentRecord[];
     onDelete: (id: number) => void;
     onPreview: (previewData: PreviewDocument) => void;
+    onGeneratePublicLink: (document: DocumentRecord) => void;
 }
 
 export default function DocumentList({
     documents,
     onDelete,
-    onPreview
+    onPreview,
+    onGeneratePublicLink,
 }: DocumentListProps) {
     const [openDropdownId, setOpenDropdownId] = useState<number | null>(null);
     
@@ -25,14 +27,14 @@ export default function DocumentList({
                 My Documents
             </h2>
 
-            <div className="grid grid-cols-5 gap-1">
+            <div className="grid grid-cols-4 gap-2">
 
                 {documents.length === 0 ? (
                     // Keep the empty state explicit so the dashboard does not look broken when no documents exist.
                     <p>No documents found</p>
                 ) : (
                     documents.map((doc) => (
-                        <DocumentCard key={doc.id} document={doc} onDelete={onDelete} onPreview={onPreview} openDropdownId={openDropdownId} setOpenDropdownId={setOpenDropdownId} />
+                        <DocumentCard key={doc.id} document={doc} onDelete={onDelete} onPreview={onPreview} onGeneratePublicLink={onGeneratePublicLink} openDropdownId={openDropdownId} setOpenDropdownId={setOpenDropdownId} />
                     ))
                 )}
             </div>

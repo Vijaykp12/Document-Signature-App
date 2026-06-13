@@ -3,7 +3,7 @@
 
 import { useRef, useState, useEffect } from "react";
 import { Document, Page, pdfjs } from "react-pdf";
-import {createSignature, deleteSignature, generateSignedDocument, mySignatures} from "../../../../lib/api";
+import {createSignature, deleteSignature, generateSignedDocument, mySignatures, updateSignature} from "../../../../lib/api";
 
 const BASE_URL =
     "https://vigilant-enigma-7vr96xxjqv7rfpvr-8000.app.github.dev";
@@ -45,6 +45,7 @@ export default function PDFPreview({
 }: Props) {
     const [numPages, setNumPages] = useState<number>(0);
     const [pageNumber, setPageNumber] = useState(1);
+    const pdfRef = useRef<HTMLDivElement>(null);
     const isDragging = useRef(false);
     const [draggingId, setDraggingId] = useState<number | null>(null);
     const [signatures, setSignatures] = useState<
@@ -52,11 +53,11 @@ export default function PDFPreview({
                                             >([]);
     
     
-    const [currectSign, setCurrentSign] = useState<
+    const [currentSign, setCurrentSign] = useState<
                                             SignatureState[]
                                             >([]);
     const signaturesRef = useRef(signatures);
-    const currentSignRef = useRef(currectSign);
+    const currentSignRef = useRef(currentSign);
 
     useEffect(() => {
         const fetchSignatures = async () => {
@@ -88,10 +89,15 @@ export default function PDFPreview({
     }, [signatures]);
 
     useEffect(() => {
-        currentSignRef.current = currectSign;
-    }, [currectSign]);
+        currentSignRef.current = currentSign;
+    }, [currentSign]);
 
     const saveSessionSignatures = async() => {
+        console.log("Original:", currentSignRef.current);
+        console.log(
+            "Current:",
+            signaturesRef.current
+        );  
         const createdSigns =
                 signaturesRef.current.filter(
                     (sig) =>
@@ -100,43 +106,72 @@ export default function PDFPreview({
                         )
                 );
 
-            const deletedSigns =
-                currentSignRef.current.filter(
-                    (oldSig) =>
-                        !signaturesRef.current.some(
-                            (sig) => sig.id === oldSig.id
-                        )
-                );
-
-            console.log(
-                "Created:",
-                createdSigns
+        const deletedSigns =
+            currentSignRef.current.filter(
+                (oldSig) =>
+                    !signaturesRef.current.some(
+                        (sig) => sig.id === oldSig.id
+                    )
             );
 
-            console.log(
-                "Deleted:",
-                deletedSigns
+        const updatedSigns = signaturesRef.current.filter(sig => {
+            if (sig.id < 0) return false;
+
+            const oldSig = currentSignRef.current.find(
+                s => s.id === sig.id
             );
 
-            const signData: SignatureCreatePayload[] = createdSigns.map((sig:any) => (
-                {   
-                    document_id: sig.document_id,
-                    x: sig.x,
-                    y: sig.y,
-                    page: sig.page
-                }
-            ))
+            if (!oldSig) return false;
 
-            signData.forEach((data) => {
-                console.log("Creating signature:", data);
-                createSignature(
-                    data
-                );
-            });
+            return (
+                oldSig.x !== sig.x ||
+                oldSig.y !== sig.y ||
+                oldSig.page !== sig.page
+            );
+        });
 
-            deletedSigns.forEach((sig) => {
-                deleteSignature(sig.id);
+        console.log(
+            "Created:",
+            createdSigns
+        );
+
+        console.log(
+            "Deleted:",
+            deletedSigns
+        );
+
+        const signData: SignatureCreatePayload[] = createdSigns.map((sig:any) => (
+            {   
+                document_id: sig.document_id,
+                x: sig.x,
+                y: sig.y,
+                page: sig.page
+            }
+        ))
+
+        for (const data of signData) {
+            console.log("Creating:", data);
+            const result = await createSignature(data);
+            console.log(result);
+        }
+
+        for (const sig of deletedSigns) {
+            console.log("Deleting:", sig.id);
+            const result = await deleteSignature(sig.id);
+            console.log(result);
+        }
+
+        for (const sig of updatedSigns) {
+            console.log("Updating:", sig);
+
+            await updateSignature(sig.id, {
+                x: sig.x,
+                y: sig.y,
+                page: sig.page,
             });
+        }
+        currentSignRef.current = [...signaturesRef.current];
+        setCurrentSign([...signaturesRef.current]);
         }
 
     useEffect(() => {
@@ -188,11 +223,11 @@ export default function PDFPreview({
 
     const handleMouseMove = (event: React.MouseEvent<HTMLDivElement>) => {
         if(draggingId === null) return;
-        isDragging.current = true;
-        const rect = event.currentTarget.getBoundingClientRect();
+        if(!pdfRef.current) return;
+        const rect = pdfRef.current.getBoundingClientRect();
         const x = (event.clientX - rect.left)/rect.width ;
         const y = (event.clientY - rect.top)/rect.height ;
-        console.log(`Clicked at: (${x}, ${y})`);
+
 
         setSignatures((prev) => prev.map((sig) =>sig.id === draggingId ? { ...sig, x, y }: sig));
     }
@@ -202,10 +237,9 @@ export default function PDFPreview({
             isDragging.current = false;
             return;
         }
-        const rect = event.currentTarget.getBoundingClientRect();
-        const x = (event.clientX - rect.left)/rect.width ;
-        const y = (event.clientY - rect.top)/rect.height ;
-        console.log(`Clicked at: (${x}, ${y})`);
+        const rect = pdfRef.current?.getBoundingClientRect();
+        const x = (event.clientX - rect!.left)/rect!.width ;
+        const y = (event.clientY - rect!.top)/rect!.height ;
 
         setSignatures((prev) => [...prev, { id: -Date.now(), document_id: previewDoc?.doc_id || 0, x, y, page: pageNumber }]);
     }
@@ -308,15 +342,13 @@ export default function PDFPreview({
                     }
                 >
                     <div
+                        ref={pdfRef}
                         className="
                             relative
-                            flex
-                            justify-center
-                            scale-95
-                            
+                            inline-block
                         "
-                        onMouseMove = {handleMouseMove}
-                        onMouseUp = {handleMouseUp}
+                        onMouseMove={handleMouseMove}
+                        onMouseUp={handleMouseUp}
                         onClick={handlePdfClick}
                     >
                         <Page
@@ -330,7 +362,7 @@ export default function PDFPreview({
                             (sig) => sig.page === pageNumber
                         ).map((sig, index) => (
                             <div 
-                                key={index}
+                                key={sig.id}
                                 className="
                                     absolute
                                     text-red-500
@@ -341,6 +373,7 @@ export default function PDFPreview({
                                 style={{
                                     left: `${sig.x * 100}%`,
                                     top: `${sig.y * 100}%`,
+                                    transform: "translate(-50%, -50%)"
                                 }}
                                 onMouseDown={() => handleMouseDown(sig.id)}
                                 onClick = {(e) => {e.stopPropagation()}}

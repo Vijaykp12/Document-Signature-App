@@ -202,6 +202,27 @@ export async function createSignature(
     });
 }
 
+export async function updateSignature(
+    signatureId: number,
+    payload: {
+        x: number;
+        y: number;
+        page: number;
+    }
+) {
+    return requestJson(
+        `/signatures/update-signature/${signatureId}`,
+        {
+            method: "PUT",
+            headers: {
+                Authorization: `Bearer ${getToken()}`,
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify(payload),
+        }
+    );
+}
+
 export async function generateSignedDocument(documentId: number) {
     const token = getToken();
 
@@ -221,9 +242,65 @@ export async function generateSignedDocument(documentId: number) {
     });
 }
 
-export async function downloadSignedDocument(documentId: number) {
+export async function downloadSignedDocument(documentId: number, filename: string) {
     // The backend streams the file directly, so the browser download can stay simple here.
-    getToken();
-    const downloadUrl = `${API_URL}/documents/download-signed/${documentId}`;
-    window.open(downloadUrl, "_blank");
+    const token = getToken();
+    const response = await fetch(
+        `${API_URL}/documents/download-signed/${documentId}`,
+        {
+            headers: {
+                Authorization: `Bearer ${token}`,
+            },
+        }
+    );
+
+    const blob = await response.blob();
+    const downloadUrl = window.URL.createObjectURL(blob);
+
+    const link = document.createElement("a");
+    link.href = downloadUrl;
+    link.download = `signed_document_${filename}.pdf`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(downloadUrl); 
+}
+
+export async function generatePublicLink(payload: {
+    doc_id: number;
+    signer_email: string;
+    expires: number;
+}): Promise<ApiResult<{ signing_link: string; token?: string }>> {
+    const token = getToken();
+
+    if (!token) {
+        return {
+            success: false,
+            message: "Session expired or invalid. Please log out and log in again.",
+        };
+    }
+
+    return requestJson("/documents/create-signing-link", {
+        method: "POST",
+        headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+            document_id: payload.doc_id,
+            signer_email: payload.signer_email,
+            expires_in: payload.expires,
+        }),
+    });
+}
+
+export async function getPublicDocumentPreview(token: string) {
+    return requestJson<{
+        document_id: number;
+        filename: string;
+        thumbnail: string | null;
+        pdf_url: string;
+        signer_email: string;
+        expires_at: string;
+    }>(`/documents/public-document/preview/${token}`);
 }

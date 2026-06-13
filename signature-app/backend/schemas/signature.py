@@ -5,3 +5,13 @@ class SignatureCreate(BaseModel):
     x: float
     y: float
     page: int
+
+class SignatureUpdate(BaseModel):
+    x: float
+    y: float
+    page: int
+
+class PublicSignatureCreate(BaseModel):
+    x: float
+    y: float
+    page: int

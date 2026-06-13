@@ -7,9 +7,15 @@ interface DropDownBarProps {
     document: DocumentRecord;
     onDelete: (id: number) => void;
     onPreview: (previewData: PreviewDocument) => void;
+    onGeneratePublicLink: (document: DocumentRecord) => void;
 }
 
-export default function DropDownBar({document, onDelete, onPreview}: DropDownBarProps) {
+export default function DropDownBar({
+    document,
+    onDelete,
+    onPreview,
+    onGeneratePublicLink,
+}: DropDownBarProps) {
     const handleDelete = async () => {
         try{
             const response = await deleteDocument(document.id);
@@ -35,13 +41,13 @@ export default function DropDownBar({document, onDelete, onPreview}: DropDownBar
 
     const handleDownload = async () => {
         try {
-            await downloadSignedDocument(document.id);
+            await downloadSignedDocument(document.id, document.filename);
         }
         catch(error) {
             console.error("Error downloading signed document:", error);
         }
     }
-    
+
     return (
         <div
             className="
@@ -118,6 +124,24 @@ export default function DropDownBar({document, onDelete, onPreview}: DropDownBar
             >
                 📥
                 <span>Download</span>
+            </button>
+            <button
+                onClick={() => onGeneratePublicLink(document)}
+                className="
+                    w-full
+                    flex
+                    items-center
+                    gap-3
+                    px-4
+                    py-3
+                    text-sm
+                    text-red-600
+                    hover:bg-red-50
+                    transition-colors
+                "
+            >
+                🔗
+                <span>Generate Public Link</span>
             </button>
         </div>
     )

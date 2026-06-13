@@ -10,6 +10,7 @@ interface DocumentCardProps {
     document: DocumentRecord;
     onDelete: (id: number) => void;
     onPreview: (previewData: PreviewDocument) => void;
+    onGeneratePublicLink: (document: DocumentRecord) => void;
 
     openDropdownId: number | null;
     setOpenDropdownId: React.Dispatch<
@@ -21,6 +22,7 @@ export default function DocumentCard({
     document,
     onDelete,
     onPreview,
+    onGeneratePublicLink,
     openDropdownId,
     setOpenDropdownId,
 }: DocumentCardProps)  {  
@@ -57,7 +59,7 @@ export default function DocumentCard({
                     &#x22EE;
                 </button>
                 {/* The parent owns the open state so only one document menu can stay open at a time. */}
-                {isOpen && <DropDownBar document={document} onDelete={onDelete} onPreview={onPreview}/>}
+                {isOpen && <DropDownBar document={document} onDelete={onDelete} onPreview={onPreview} onGeneratePublicLink={onGeneratePublicLink}/>} 
             </div>
         </div>
     )

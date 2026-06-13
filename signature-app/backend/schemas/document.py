@@ -20,3 +20,8 @@ class UploadResponse(BaseModel):
 class SignedDocumentResponse(BaseModel):
     message: str
     path: str
+
+class SigningLinkCreate(BaseModel):
+    document_id: int
+    signer_email: str
+    expires_in: int

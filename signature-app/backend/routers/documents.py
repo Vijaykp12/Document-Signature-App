@@ -13,10 +13,14 @@ from schemas.document import (
     DocumentResponse,
     UploadResponse,
     SignedDocumentResponse,
+    SigningLinkCreate
 )
 from fastapi.responses import FileResponse
 from models.user import User
-import os   
+from models.signing_link import SigningLink
+import os  
+import uuid 
+from datetime import datetime, timedelta
 
 router = APIRouter()
 
@@ -132,8 +136,129 @@ def download_signed_document(
             detail="Signed document not found",
         )
 
+    print("DOWNLOADING:", document.signed_filepath)
+    print("EXISTS:", os.path.exists(document.signed_filepath))
+
+    if os.path.exists(document.signed_filepath):
+        print(
+            "SIZE:",
+            os.path.getsize(document.signed_filepath)
+        )
+
     return FileResponse(
         path=document.signed_filepath,
         filename=f"signed_{document.filename}",
         media_type="application/pdf",
     )
+
+@router.post("/create-signing-link")
+def create_signing_link(
+    payload: SigningLinkCreate,
+    db:Session = Depends(get_db),
+    current_user: str = Depends(get_current_user)
+):
+    user = db.query(User).filter(User.email == current_user).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    document = db.query(Document).filter(Document.id == payload.document_id, Document.owner_id == user.id).first()
+    if not document:
+        raise HTTPException(status_code=404, detail="Document not found or you do not have permission to create a signing link for this document")
+    
+    doc_token = str(uuid.uuid4())
+
+    link = SigningLink(
+        document_id=payload.document_id,
+        token=doc_token,
+        signer_email=payload.signer_email,
+        expires_at=datetime.utcnow() + timedelta(days=payload.expires_in)
+    )
+
+    db.add(link)
+    db.commit()
+    db.refresh(link)
+
+    FRONTEND_URL = os.getenv("FRONTEND_URL")
+
+    return {
+        "message": "Signing link created successfully",
+        "signing_link": f"{FRONTEND_URL}/sign/{doc_token}"
+    }
+
+
+@router.get("public-document/preview/{token}")
+def get_public_preview(
+    token: str,
+    db: Session = Depends(get_db)
+):
+    link = db.query(SigningLink).filter(
+        SigningLink.token == token
+    ).first()
+
+    if not link:
+        raise HTTPException(
+            status_code=404,
+            detail="Signing link not found"
+        )
+
+    if link.expires_at and link.expires_at < datetime.utcnow():
+        raise HTTPException(
+            status_code=410,
+            detail="Signing link has expired"
+        )
+
+    if link.is_used:
+        raise HTTPException(
+            status_code=410,
+            detail="This signing link has already been used"
+        )
+
+    document = db.query(Document).filter(
+        Document.id == link.document_id
+    ).first()
+
+    if not document:
+        raise HTTPException(
+            status_code=404,
+            detail="Document not found"
+        )
+
+    return {
+        "document_id": document.id,
+        "filename": document.filename,
+        "thumbnail": (
+            f"/thumbnails/{os.path.basename(document.thumbnail_path)}"
+            if document.thumbnail_path
+            else None
+        ),
+        "pdf_url": f"/public-sign/file/{token}",
+        "signer_email": link.signer_email,
+        "expires_at": link.expires_at,
+    }
+
+
+@router.get("/public-document/pdf/{token}")
+def get_public_document(
+    token: str,
+    db: Session = Depends(get_db)
+):
+    link = db.query(SigningLink).filter(
+        SigningLink.token == token,
+        SigningLink.expires_at > datetime.utcnow(),
+        SigningLink.is_used == False
+    ).first()
+
+    if not link:
+        raise HTTPException(status_code=404, detail="Signing link not found or expired")
+
+    document = db.query(Document).filter(Document.id == link.document_id).first()
+
+    if not document:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    return FileResponse(
+        path=document.filepath,
+        filename=document.filename,
+        media_type="application/pdf",
+    )
+
