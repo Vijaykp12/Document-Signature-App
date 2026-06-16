@@ -21,6 +21,8 @@ from models.signing_link import SigningLink
 import os  
 import uuid 
 from datetime import datetime, timedelta
+from fastapi import Response
+from services.email_service import send_signing_email
 
 router = APIRouter()
 
@@ -32,11 +34,20 @@ async def upload_document(
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
     current_user: str = Depends(get_current_user),
+    request: Request,
 ):
     document = upload_document_service(
         file,
         current_user,
         db,
+    )
+
+    create_audit_log(
+        db=db,
+        user_id=user.id,
+        action="Uploaded document",
+        document_id=document.id,
+        ip_address=request.client.host,
     )
 
     return {
@@ -81,11 +92,20 @@ def delete_document(
     document_id: int,
     db: Session = Depends(get_db),
     current_user: str = Depends(get_current_user),
+    request: Request,
 ):
     delete_document_service(
         document_id=document_id,
         current_user=current_user,
         db=db,
+    )
+
+    create_audit_log(
+        db=db,
+        user_id=user.id,
+        action="Deleted document",
+        document_id=document.id,
+        ip_address=request.client.host,
     )
 
     return {
@@ -101,11 +121,20 @@ def generate_signed_document(
     document_id: int,
     db: Session = Depends(get_db),
     current_user: str = Depends(get_current_user),
+    request: Request,
 ):
     document = generate_signed_document_service(
         document_id,
         current_user,
         db,
+    )
+
+    create_audit_log(
+        db=db,
+        user_id=user.id,
+        action="Generated signed document",
+        document_id=document.id,
+        ip_address=request.client.host,
     )
 
     return {
@@ -155,7 +184,8 @@ def download_signed_document(
 def create_signing_link(
     payload: SigningLinkCreate,
     db:Session = Depends(get_db),
-    current_user: str = Depends(get_current_user)
+    current_user: str = Depends(get_current_user),
+    request: Request,
 ):
     user = db.query(User).filter(User.email == current_user).first()
     if not user:
@@ -178,11 +208,29 @@ def create_signing_link(
     db.commit()
     db.refresh(link)
 
+    signing_url = (
+        f"{FRONTEND_URL}/sign/{doc_token}"
+    )
+
+    send_signing_email(
+        recipient=payload.signer_email,
+        signing_link=signing_url,
+        filename=document.filename,
+    )
+
     FRONTEND_URL = os.getenv("FRONTEND_URL")
+
+    create_audit_log(
+        db=db,
+        user_id=user.id,
+        action="Created Signing Link for Document",
+        document_id=document.id,
+        ip_address=request.client.host,
+    )
 
     return {
         "message": "Signing link created successfully",
-        "signing_link": f"{FRONTEND_URL}/sign/{doc_token}"
+        "signing_link": signing_url
     }
 
 

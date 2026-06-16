@@ -5,6 +5,7 @@ from schemas.signature import SignatureCreate, SignatureUpdate, PublicSignatureC
 from services.database import get_db
 from middleware.auth import get_current_user
 from models.user import User
+from services.audit_service import create_audit_log
 
 router = APIRouter()
 
@@ -147,6 +148,14 @@ def public_sign(
 
     db.commit()
     db.refresh(new_signature)
+
+    create_audit_log(
+        db=db,
+        user_id=None,
+        action="Created signature via public link",
+        document_id=document.id,
+        ip_address=request.client.host,
+    )
 
     return {
         "message": "Document signed successfully"
