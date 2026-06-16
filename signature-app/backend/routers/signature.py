@@ -1,11 +1,13 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 from models.signature import Signature
-from schemas.signature import SignatureCreate, SignatureUpdate, PublicSignatureCreate
+from schemas.signature import SignatureCreate, SignatureUpdate, PublicSignatureCreate, PublicRejectPayload
 from services.database import get_db
 from middleware.auth import get_current_user
 from models.user import User
+from models.signing_link import SigningLink
 from services.audit_service import create_audit_log
+from datetime import datetime
 
 router = APIRouter()
 
@@ -26,7 +28,10 @@ def place_signature(
         page = signature.page,
         x = signature.x,
         y = signature.y,
-        status = "pending"
+        status = "pending",
+        text = signature.text,
+        font = signature.font,
+        color = signature.color
     )
 
     db.add(new_signature)
@@ -56,7 +61,10 @@ def get_my_signatures(
             "page": sig.page,
             "x": sig.x,
             "y": sig.y,
-            "status": sig.status
+            "status": sig.status,
+            "text": sig.text,
+            "font": sig.font,
+            "color": sig.color
         }
         for sig in signatures
     ]
@@ -107,6 +115,12 @@ def update_signature(
     existing_signature.x = signature.x
     existing_signature.y = signature.y
     existing_signature.page = signature.page
+    if signature.text is not None:
+        existing_signature.text = signature.text
+    if signature.font is not None:
+        existing_signature.font = signature.font
+    if signature.color is not None:
+        existing_signature.color = signature.color
 
     db.commit()
     db.refresh(existing_signature)
@@ -119,6 +133,7 @@ def update_signature(
 def public_sign(
     token: str,
     signature: PublicSignatureCreate,
+    request: Request,
     db: Session = Depends(get_db)
 ):
     link = db.query(SigningLink).filter(
@@ -139,12 +154,16 @@ def public_sign(
         page=signature.page,
         x=signature.x,
         y=signature.y,
-        status="completed"
+        status="completed",
+        text=signature.text,
+        font=signature.font,
+        color=signature.color
     )
 
     db.add(new_signature)
 
     link.is_used = True
+    link.status = "signed"
 
     db.commit()
     db.refresh(new_signature)
@@ -153,10 +172,47 @@ def public_sign(
         db=db,
         user_id=None,
         action="Created signature via public link",
-        document_id=document.id,
+        document_id=link.document_id,
         ip_address=request.client.host,
     )
 
     return {
         "message": "Document signed successfully"
+    }
+
+@router.post("/public-reject/{token}")
+def public_reject(
+    token: str,
+    payload: PublicRejectPayload,
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    link = db.query(SigningLink).filter(
+        SigningLink.token == token,
+        SigningLink.expires_at > datetime.utcnow(),
+        SigningLink.is_used == False
+    ).first()
+
+    if not link:
+        raise HTTPException(
+            status_code=404,
+            detail="Signing link expired or invalid"
+        )
+
+    link.is_used = True
+    link.status = "rejected"
+    link.rejection_reason = payload.reason
+
+    db.commit()
+
+    create_audit_log(
+        db=db,
+        user_id=None,
+        action=f"Rejected signature request via public link. Reason: {payload.reason}",
+        document_id=link.document_id,
+        ip_address=request.client.host,
+    )
+
+    return {
+        "message": "Document signature request rejected successfully"
     }

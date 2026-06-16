@@ -9,4 +9,6 @@ class SigningLink(Base):
     token = Column(String, unique=True, nullable=False)
     signer_email = Column(String, nullable=False)
     expires_at = Column(DateTime, nullable=False)  # Store as UNIX timestamp
-    is_used = Column(Boolean, nullable=False, default=0)  # 0 for False, 1 for True
+    is_used = Column(Boolean, nullable=False, default=False)
+    status = Column(String, nullable=False, default="pending")  # "pending", "signed", "rejected"
+    rejection_reason = Column(String, nullable=True)

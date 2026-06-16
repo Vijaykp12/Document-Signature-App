@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, File, UploadFile, HTTPException
+from fastapi import APIRouter, Depends, File, UploadFile, HTTPException, Request
 from services.document_service import (
     upload_document_service,
     generate_signed_document_service,
@@ -23,6 +23,7 @@ import uuid
 from datetime import datetime, timedelta
 from fastapi import Response
 from services.email_service import send_signing_email
+from services.audit_service import create_audit_log
 
 router = APIRouter()
 
@@ -31,11 +32,15 @@ router = APIRouter()
     response_model=UploadResponse,
 )
 async def upload_document(
+    request: Request,
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
     current_user: str = Depends(get_current_user),
-    request: Request,
 ):
+    user = db.query(User).filter(User.email == current_user).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
     document = upload_document_service(
         file,
         current_user,
@@ -90,10 +95,14 @@ def get_my_documents(
 @router.delete("/{document_id}")
 def delete_document(
     document_id: int,
+    request: Request,
     db: Session = Depends(get_db),
     current_user: str = Depends(get_current_user),
-    request: Request,
 ):
+    user = db.query(User).filter(User.email == current_user).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
     delete_document_service(
         document_id=document_id,
         current_user=current_user,
@@ -104,7 +113,7 @@ def delete_document(
         db=db,
         user_id=user.id,
         action="Deleted document",
-        document_id=document.id,
+        document_id=document_id,
         ip_address=request.client.host,
     )
 
@@ -119,10 +128,14 @@ def delete_document(
 )
 def generate_signed_document(
     document_id: int,
+    request: Request,
     db: Session = Depends(get_db),
     current_user: str = Depends(get_current_user),
-    request: Request,
 ):
+    user = db.query(User).filter(User.email == current_user).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
     document = generate_signed_document_service(
         document_id,
         current_user,
@@ -183,9 +196,9 @@ def download_signed_document(
 @router.post("/create-signing-link")
 def create_signing_link(
     payload: SigningLinkCreate,
+    request: Request,
     db:Session = Depends(get_db),
     current_user: str = Depends(get_current_user),
-    request: Request,
 ):
     user = db.query(User).filter(User.email == current_user).first()
     if not user:
@@ -208,17 +221,19 @@ def create_signing_link(
     db.commit()
     db.refresh(link)
 
+    frontend_url = os.getenv("FRONTEND_URL") or "http://localhost:3000"
     signing_url = (
-        f"{FRONTEND_URL}/sign/{doc_token}"
+        f"{frontend_url}/sign/{doc_token}"
     )
 
-    send_signing_email(
-        recipient=payload.signer_email,
-        signing_link=signing_url,
-        filename=document.filename,
-    )
-
-    FRONTEND_URL = os.getenv("FRONTEND_URL")
+    try:
+        send_signing_email(
+            recipient=payload.signer_email,
+            signing_link=signing_url,
+            filename=document.filename,
+        )
+    except Exception as e:
+        print("Failed to send signing email (this is normal in development if RESEND_API_KEY is not configured):", e)
 
     create_audit_log(
         db=db,
@@ -234,7 +249,7 @@ def create_signing_link(
     }
 
 
-@router.get("public-document/preview/{token}")
+@router.get("/public-document/preview/{token}")
 def get_public_preview(
     token: str,
     db: Session = Depends(get_db)
@@ -253,12 +268,6 @@ def get_public_preview(
         raise HTTPException(
             status_code=410,
             detail="Signing link has expired"
-        )
-
-    if link.is_used:
-        raise HTTPException(
-            status_code=410,
-            detail="This signing link has already been used"
         )
 
     document = db.query(Document).filter(
@@ -282,6 +291,8 @@ def get_public_preview(
         "pdf_url": f"/public-sign/file/{token}",
         "signer_email": link.signer_email,
         "expires_at": link.expires_at,
+        "status": link.status,
+        "rejection_reason": link.rejection_reason,
     }
 
 
@@ -292,8 +303,7 @@ def get_public_document(
 ):
     link = db.query(SigningLink).filter(
         SigningLink.token == token,
-        SigningLink.expires_at > datetime.utcnow(),
-        SigningLink.is_used == False
+        SigningLink.expires_at > datetime.utcnow()
     ).first()
 
     if not link:
@@ -309,4 +319,75 @@ def get_public_document(
         filename=document.filename,
         media_type="application/pdf",
     )
+
+
+@router.get("/signing-links")
+def get_signing_links(
+    db: Session = Depends(get_db),
+    current_user: str = Depends(get_current_user)
+):
+    user = db.query(User).filter(User.email == current_user).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    links_with_doc = db.query(SigningLink, Document).join(
+        Document, SigningLink.document_id == Document.id
+    ).filter(
+        Document.owner_id == user.id
+    ).all()
+
+    return [
+        {
+            "id": link.id,
+            "token": link.token,
+            "document_id": link.document_id,
+            "document_filename": doc.filename,
+            "signer_email": link.signer_email,
+            "expires_at": link.expires_at,
+            "is_used": link.is_used,
+            "status": link.status,
+            "rejection_reason": link.rejection_reason
+        }
+        for link, doc in links_with_doc
+    ]
+
+
+@router.delete("/signing-link/{link_id}")
+def delete_signing_link(
+    link_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: str = Depends(get_current_user)
+):
+    user = db.query(User).filter(User.email == current_user).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    link = db.query(SigningLink).join(
+        Document, SigningLink.document_id == Document.id
+    ).filter(
+        SigningLink.id == link_id,
+        Document.owner_id == user.id
+    ).first()
+
+    if not link:
+        raise HTTPException(
+            status_code=404,
+            detail="Signing link not found or you do not have permission"
+        )
+
+    db.delete(link)
+    db.commit()
+
+    create_audit_log(
+        db=db,
+        user_id=user.id,
+        action=f"Deleted/Revoked signing link for recipient: {link.signer_email}",
+        document_id=link.document_id,
+        ip_address=request.client.host,
+    )
+
+    return {"message": "Signing link revoked and deleted successfully"}
+
+
 

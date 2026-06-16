@@ -2,6 +2,7 @@
 
 import {useState} from 'react';
 import {useRouter} from 'next/navigation';
+import Link from 'next/link';
 import {registerUser} from '../../../lib/api';
 
 export default function RegisterPage() {
@@ -83,6 +84,13 @@ export default function RegisterPage() {
                     >
                         {loading ? "Signing up..." : "Sign Up"}
                     </button>
+
+                    <p className="mt-6 text-center text-sm text-slate-400">
+                        Already have an account?{" "}
+                        <Link href="/login" className="text-cyan-400 hover:underline">
+                            Log In
+                        </Link>
+                    </p>
 
                 </form> 
             </div>

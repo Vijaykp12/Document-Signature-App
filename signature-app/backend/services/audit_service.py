@@ -1,7 +1,10 @@
-from models.audit_log import AuditLog
+from models.audit_logs import AuditLog
+from sqlalchemy.orm import Session
+from fastapi import Depends
+from services.database import get_db
 
 def create_audit_log(
-    db: Session = Depends(get_db),
+    db: Session,
     user_id=None,
     action=None,
     ip_address=None,

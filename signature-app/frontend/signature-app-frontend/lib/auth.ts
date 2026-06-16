@@ -1,10 +1,10 @@
 export function getToken() {
-    // Keep token access browser-only so server rendering never touches localStorage.
+    // Keep token access browser-only so server rendering never touches storage.
     if (typeof window === 'undefined') {
         return null;
     }
 
-    const token = localStorage.getItem('token');
+    const token = sessionStorage.getItem('token') || localStorage.getItem('token');
 
     return (
         token &&

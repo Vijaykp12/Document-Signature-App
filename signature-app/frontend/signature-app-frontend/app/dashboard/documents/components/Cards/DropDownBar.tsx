@@ -53,16 +53,16 @@ export default function DropDownBar({
             className="
                 absolute
                 right-0
-                top-[350px]
+                top-[345px]
                 mt-2
                 w-60
-                bg-white
+                bg-[#0b132b]
                 rounded-xl
-                shadow-2xl
+                shadow-[0_10px_40px_rgba(6,182,212,0.15)]
                 overflow-hidden
                 z-50
                 border
-                border-gray-200
+                border-cyan-500/20
             "
         >
             <button
@@ -75,37 +75,17 @@ export default function DropDownBar({
                     px-4
                     py-3
                     text-sm
-                    text-gray-700
-                    hover:bg-gray-100
-                    transition-colors
+                    text-slate-200
+                    hover:bg-cyan-950/40
+                    hover:text-cyan-400
+                    transition-all
                 "
             >
-                👁️
+                <span>👁️</span>
                 <span>Preview</span>
             </button>
 
-            <div className="border-t border-gray-200" />
-
-            <button
-                onClick={handleDelete}
-                className="
-                    w-full
-                    flex
-                    items-center
-                    gap-3
-                    px-4
-                    py-3
-                    text-sm
-                    text-red-600
-                    hover:bg-red-50
-                    transition-colors
-                "
-            >
-                🗑️
-                <span>Delete</span>
-            </button>
-
-            <div className="border-t border-gray-200" />
+            <div className="border-t border-cyan-950/40" />
 
             <button
                 onClick={handleDownload}
@@ -117,14 +97,18 @@ export default function DropDownBar({
                     px-4
                     py-3
                     text-sm
-                    text-red-600
-                    hover:bg-red-50
-                    transition-colors
+                    text-slate-200
+                    hover:bg-cyan-950/40
+                    hover:text-cyan-400
+                    transition-all
                 "
             >
-                📥
+                <span>📥</span>
                 <span>Download</span>
             </button>
+
+            <div className="border-t border-cyan-950/40" />
+
             <button
                 onClick={() => onGeneratePublicLink(document)}
                 className="
@@ -135,13 +119,36 @@ export default function DropDownBar({
                     px-4
                     py-3
                     text-sm
-                    text-red-600
-                    hover:bg-red-50
-                    transition-colors
+                    text-slate-200
+                    hover:bg-cyan-950/40
+                    hover:text-cyan-400
+                    transition-all
                 "
             >
-                🔗
+                <span>🔗</span>
                 <span>Generate Public Link</span>
+            </button>
+
+            <div className="border-t border-cyan-950/40" />
+
+            <button
+                onClick={handleDelete}
+                className="
+                    w-full
+                    flex
+                    items-center
+                    gap-3
+                    px-4
+                    py-3
+                    text-sm
+                    text-red-400
+                    hover:bg-red-950/30
+                    hover:text-red-300
+                    transition-all
+                "
+            >
+                <span>🗑️</span>
+                <span>Delete</span>
             </button>
         </div>
     )

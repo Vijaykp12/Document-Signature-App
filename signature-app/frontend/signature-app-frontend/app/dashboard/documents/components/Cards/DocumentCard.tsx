@@ -1,6 +1,6 @@
 "use client"
 
-const BASE_URL = "https://vigilant-enigma-7vr96xxjqv7rfpvr-8000.app.github.dev";
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 import DropDownBar from "./DropDownBar";
 
 
@@ -30,11 +30,18 @@ export default function DocumentCard({
     const isOpen = openDropdownId === document.id;
     return (
         <div className = "relative w-[250px] h-[400px] border rounded-lg m-2 hover:shadow-cyan-500 hover:translate-y-[-5px] ease-in-out transition-all p-4 bg-[#04081D] border-cyan-900/30 shadow-md">
-            <img
-                src={`${BASE_URL}${document.thumbnail}`}
-                alt={document.thumbnail ? document.filename : "No Thumbnail"}
-                className = "w-[250px] h-[300px] object-fit rounded-md"
-            />
+            {document.thumbnail ? (
+                <img
+                    src={`${BASE_URL}${document.thumbnail}`}
+                    alt={document.filename}
+                    className="w-full h-[300px] object-cover rounded-md"
+                />
+            ) : (
+                <div className="w-full h-[300px] bg-slate-950/50 flex flex-col items-center justify-center rounded-md border border-cyan-900/20 text-slate-500">
+                    <span className="text-4xl mb-2">📄</span>
+                    <span className="text-xs font-semibold tracking-wider text-cyan-500/70">NO THUMBNAIL</span>
+                </div>
+            )}
             <div className="flex justify-between items-center pt-2">
                 <p className="font-semibold w-full truncate">{document.filename}</p>
                 <button

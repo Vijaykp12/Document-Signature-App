@@ -1,4 +1,4 @@
-const API_URL = "https://vigilant-enigma-7vr96xxjqv7rfpvr-8000.app.github.dev";
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
 
 import { getToken } from "./auth";
 
@@ -34,7 +34,6 @@ export async function loginUser(
     email: string,
     password: string
 ): Promise<ApiResult<{ access_token: string; token_type: string }>> {
-    // Reuse the shared request helper so login and register report errors the same way.
     return requestJson("/auth/login", {
         method: "POST",
         headers: {
@@ -49,7 +48,6 @@ export async function registerUser(
     email: string,
     password: string
 ): Promise<ApiResult<{ message: string }>> {
-    // Reuse the shared request helper so registration follows the same response contract as login.
     return requestJson("/auth/register", {
         method: "POST",
         headers: {
@@ -84,7 +82,7 @@ export async function getDocuments(): Promise<ApiResult<Array<{
 
 export async function uploadDocument(
     file: File | null,
-) {
+): Promise<ApiResult<{ message: string; document_id: number; thumbnail_url: string }>> {
     const token = getToken();
 
     if (!token) {
@@ -94,7 +92,7 @@ export async function uploadDocument(
         };
     }
 
-    if(!file) {
+    if (!file) {
         return {
             success: false,
             message: "No file selected"
@@ -104,7 +102,6 @@ export async function uploadDocument(
     const formData = new FormData();
     formData.append("file", file);
 
-    // Keep file uploads on the same request path so auth failures and server errors behave consistently.
     return requestJson("/documents/upload", {
         method: "POST",
         headers: {
@@ -114,7 +111,7 @@ export async function uploadDocument(
     });
 }
 
-export async function deleteDocument(documentId: number) {
+export async function deleteDocument(documentId: number): Promise<ApiResult<{ message: string }>> {
     const token = getToken();
 
     if (!token) {
@@ -133,8 +130,19 @@ export async function deleteDocument(documentId: number) {
     });
 }
 
+export interface ApiSignature {
+    id: number;
+    document_id: number;
+    page: number;
+    x: number;
+    y: number;
+    status: string;
+    text: string | null;
+    font: string | null;
+    color: string | null;
+}
 
-export async function mySignatures() {
+export async function mySignatures(): Promise<ApiResult<ApiSignature[]>> {
     const token = getToken();
 
     if (!token) {
@@ -153,8 +161,7 @@ export async function mySignatures() {
     });
 }
 
-
-export async function deleteSignature(signatureId: number) {
+export async function deleteSignature(signatureId: number): Promise<ApiResult<{ message: string }>> {
     const token = getToken();
 
     if (!token) {
@@ -178,11 +185,14 @@ interface CreateSignaturePayload {
     x: number;
     y: number;
     page: number;
+    text: string | null;
+    font: string | null;
+    color: string | null;
 }
 
 export async function createSignature(
     payload: CreateSignaturePayload
-) {
+): Promise<ApiResult<{ message: string; id: number }>> {
     const token = getToken();
 
     if (!token) {
@@ -208,8 +218,11 @@ export async function updateSignature(
         x: number;
         y: number;
         page: number;
+        text?: string | null;
+        font?: string | null;
+        color?: string | null;
     }
-) {
+): Promise<ApiResult<{ message: string }>> {
     return requestJson(
         `/signatures/update-signature/${signatureId}`,
         {
@@ -223,7 +236,7 @@ export async function updateSignature(
     );
 }
 
-export async function generateSignedDocument(documentId: number) {
+export async function generateSignedDocument(documentId: number): Promise<ApiResult<{ message: string; path: string }>> {
     const token = getToken();
 
     if (!token) {
@@ -243,7 +256,6 @@ export async function generateSignedDocument(documentId: number) {
 }
 
 export async function downloadSignedDocument(documentId: number, filename: string) {
-    // The backend streams the file directly, so the browser download can stay simple here.
     const token = getToken();
     const response = await fetch(
         `${API_URL}/documents/download-signed/${documentId}`,
@@ -263,7 +275,7 @@ export async function downloadSignedDocument(documentId: number, filename: strin
     document.body.appendChild(link);
     link.click();
     link.remove();
-    window.URL.revokeObjectURL(downloadUrl); 
+    window.URL.revokeObjectURL(downloadUrl);
 }
 
 export async function generatePublicLink(payload: {
@@ -302,5 +314,116 @@ export async function getPublicDocumentPreview(token: string) {
         pdf_url: string;
         signer_email: string;
         expires_at: string;
+        status: string;
+        rejection_reason: string | null;
     }>(`/documents/public-document/preview/${token}`);
+}
+
+export async function publicSign(
+    token: string,
+    payload: {
+        x: number;
+        y: number;
+        page: number;
+        text?: string | null;
+        font?: string | null;
+        color?: string | null;
+    }
+): Promise<ApiResult<{ message: string }>> {
+    return requestJson(`/signatures/public-sign/${token}`, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+    });
+}
+
+export async function publicReject(
+    token: string,
+    reason: string
+): Promise<ApiResult<{ message: string }>> {
+    return requestJson(`/signatures/public-reject/${token}`, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ reason }),
+    });
+}
+
+export interface SigningLinkRecord {
+    id: number;
+    token: string;
+    document_id: number;
+    document_filename: string;
+    signer_email: string;
+    expires_at: string;
+    is_used: boolean;
+    status: string;
+    rejection_reason: string | null;
+}
+
+export async function getSigningLinks(): Promise<ApiResult<SigningLinkRecord[]>> {
+    const token = getToken();
+
+    if (!token) {
+        return {
+            success: false,
+            message: "Session expired or invalid. Please log out and log in again.",
+        };
+    }
+
+    return requestJson("/documents/signing-links", {
+        headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+        },
+    });
+}
+
+export async function deleteSigningLink(linkId: number): Promise<ApiResult<{ message: string }>> {
+    const token = getToken();
+
+    if (!token) {
+        return {
+            success: false,
+            message: "Session expired or invalid. Please log out and log in again.",
+        };
+    }
+
+    return requestJson(`/documents/signing-link/${linkId}`, {
+        method: "DELETE",
+        headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+        },
+    });
+}
+
+
+
+export interface ApiAuditLog {
+    action: string;
+    document_id: number | null;
+    ip_address: string | null;
+    timestamp: string;
+}
+
+export async function getAuditLogs(): Promise<ApiResult<ApiAuditLog[]>> {
+    const token = getToken();
+
+    if (!token) {
+        return {
+            success: false,
+            message: "Session expired or invalid. Please log out and log in again.",
+        };
+    }
+
+    return requestJson("/audit-logs/audit-logs", {
+        headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+        },
+    });
 }

@@ -28,11 +28,33 @@ export default function DashboardLayout({
                             Documents
                         </Link>
                         <Link
+                            href="/dashboard/signature-requests"
+                            className="rounded-full px-4 py-2 text-sm font-medium text-slate-200 transition hover:bg-cyan-500 hover:text-slate-950"
+                        >
+                            Requests
+                        </Link>
+                        <Link
                             href="/dashboard/public"
                             className="rounded-full px-4 py-2 text-sm font-medium text-slate-200 transition hover:bg-cyan-500 hover:text-slate-950"
                         >
                             Public Preview
                         </Link>
+                        <Link
+                            href="/dashboard/audit-logs"
+                            className="rounded-full px-4 py-2 text-sm font-medium text-slate-200 transition hover:bg-cyan-500 hover:text-slate-950"
+                        >
+                            Audit Logs
+                        </Link>
+                        <button
+                            onClick={() => {
+                                localStorage.removeItem("token");
+                                sessionStorage.removeItem("token");
+                                window.location.href = "/login";
+                            }}
+                            className="rounded-full px-4 py-2 text-sm font-medium text-red-400 hover:text-white hover:bg-red-500/25 transition cursor-pointer"
+                        >
+                            Sign Off
+                        </button>
                     </nav>
                 </div>
             </header>

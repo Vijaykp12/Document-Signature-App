@@ -68,7 +68,7 @@ export default function Dashboard() {
     }
 
     return (
-        <div className="h-[calc(100vh-80px)] p-6 flex flex-col gap-6">
+        <div className="flex flex-col gap-6">
 
             <div className="grid grid-cols-[1fr_2fr] gap-6 min-h-[200px]">
                 <UploadPanel
@@ -84,7 +84,7 @@ export default function Dashboard() {
 
             </div>
 
-            <div className="mt-60 mb-5">
+            <div className="mt-8 mb-5">
                 <DocumentList documents={documents} onDelete={removeDocument} onPreview={setPreviewDoc} onGeneratePublicLink={handleOpenPublicLink} />
             </div>
             <PublicSignCard

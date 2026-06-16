@@ -1,16 +1,16 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, use } from "react";
 import Link from "next/link";
-import { Document, Page, pdfjs } from "react-pdf";
+import dynamic from "next/dynamic";
 import { getPublicDocumentPreview } from "../../../../lib/api";
 
-const BASE_URL = "https://vigilant-enigma-7vr96xxjqv7rfpvr-8000.app.github.dev";
-
-pdfjs.GlobalWorkerOptions.workerSrc = new URL(
-    "pdfjs-dist/build/pdf.worker.min.mjs",
-    import.meta.url
-).toString();
+const PublicPDFRenderer = dynamic(
+    () => import("./components/PublicPDFRenderer"),
+    {
+        ssr: false,
+    }
+);
 
 interface PublicPreviewData {
     document_id: number;
@@ -24,8 +24,10 @@ interface PublicPreviewData {
 export default function PublicDocumentPage({
     params,
 }: {
-    params: { token: string };
+    params: Promise<{ token: string }>;
 }) {
+    const resolvedParams = use(params);
+    const token = resolvedParams.token;
     const [preview, setPreview] = useState<PublicPreviewData | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -38,7 +40,7 @@ export default function PublicDocumentPage({
                 setLoading(true);
                 setError(null);
 
-                const result = await getPublicDocumentPreview(params.token);
+                const result = await getPublicDocumentPreview(token);
 
                 if (!result.success) {
                     setError(result.message);
@@ -55,7 +57,7 @@ export default function PublicDocumentPage({
         };
 
         void loadPreview();
-    }, [params.token]);
+    }, [token]);
 
     const handleLoadSuccess = ({ numPages: totalPages }: { numPages: number }) => {
         setNumPages(totalPages);
@@ -105,18 +107,24 @@ export default function PublicDocumentPage({
                     Expires at: {new Date(preview.expires_at).toLocaleString()}
                 </p>
 
-                <div className="mt-6 overflow-hidden rounded-[24px] border border-white/8 bg-[#020617]">
-                    {preview.thumbnail ? (
-                        <img
-                            src={`${BASE_URL}${preview.thumbnail}`}
-                            alt={preview.filename}
-                            className="w-full object-contain"
-                        />
-                    ) : (
-                        <div className="flex min-h-[360px] items-center justify-center text-slate-500">
-                            No thumbnail available
+                <div className="mt-6 p-6 rounded-[24px] border border-cyan-500/10 bg-[#020617]/50 space-y-4">
+                    <div className="flex items-center gap-3">
+                        <span className="text-3xl">📄</span>
+                        <div className="min-w-0 flex-1">
+                            <h4 className="text-sm font-semibold text-white truncate">{preview.filename}</h4>
+                            <p className="text-xs text-slate-400">Public Document ready for review</p>
                         </div>
-                    )}
+                    </div>
+                    <div className="pt-4 border-t border-cyan-900/20 text-xs text-slate-400 space-y-2">
+                        <div className="flex justify-between">
+                            <span>Recipient Email:</span>
+                            <span className="font-mono text-cyan-300">{preview.signer_email}</span>
+                        </div>
+                        <div className="flex justify-between">
+                            <span>Expires At:</span>
+                            <span className="text-white">{new Date(preview.expires_at).toLocaleDateString()}</span>
+                        </div>
+                    </div>
                 </div>
 
                 <div className="mt-6 flex gap-3">
@@ -164,19 +172,11 @@ export default function PublicDocumentPage({
                 </div>
 
                 <div className="mt-4 flex justify-center overflow-auto rounded-[22px] border border-white/8 bg-[#020617] p-4">
-                    <Document
-                        file={`${BASE_URL}/documents/public-document/pdf/${params.token}`}
+                    <PublicPDFRenderer
+                        token={token}
+                        pageNumber={pageNumber}
                         onLoadSuccess={handleLoadSuccess}
-                        loading={<p className="text-cyan-300">Loading PDF...</p>}
-                        error={<p className="text-red-300">Failed to load PDF</p>}
-                    >
-                        <Page
-                            pageNumber={pageNumber}
-                            width={560}
-                            renderTextLayer={false}
-                            renderAnnotationLayer={false}
-                        />
-                    </Document>
+                    />
                 </div>
             </section>
         </div>

@@ -2,6 +2,7 @@
 
 import {useState} from 'react';
 import {useRouter} from 'next/navigation';
+import Link from 'next/link';
 import {loginUser} from '../../../lib/api';
 
 export default function LoginPage() {
@@ -25,7 +26,8 @@ export default function LoginPage() {
                 const token = response.data.access_token;
 
                 // Only navigate after the backend returns a valid session token.
-                localStorage.setItem("token", token);
+                sessionStorage.setItem("token", token);
+                localStorage.removeItem("token");
                 router.push("/dashboard/documents");
             } else {
                 setErrorState(response.message);
@@ -76,6 +78,13 @@ export default function LoginPage() {
                     >
                         {loading ? "Logging in..." : "Login"}
                     </button>
+
+                    <p className="mt-6 text-center text-sm text-slate-400">
+                        Don't have an account?{" "}
+                        <Link href="/register" className="text-cyan-400 hover:underline">
+                            Sign Up
+                        </Link>
+                    </p>
 
                 </form> 
             </div>

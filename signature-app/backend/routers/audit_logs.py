@@ -3,15 +3,15 @@ from sqlalchemy.orm import Session
 from services.database import get_db
 from middleware.auth import get_current_user
 from models.user import User
-from services.audit_service import create_audit_log
+from models.audit_logs import AuditLog
 
-router = APIRounter()
+router = APIRouter()
 
 @router.get("/audit-logs")
 def get_audit_logs(
+    request: Request,
     db: Session = Depends(get_db),
     current_user: str = Depends(get_current_user),
-    request: Request,
 ):
     user = db.query(User).filter(User.email == current_user).first()
 
