@@ -1,34 +1,32 @@
 import fitz
 import os
-import uuid
+from utils.pdf_helper import open_pdf_from_url_or_path
+from services.storage import upload_to_supabase
 
-THUMBNAIL_DIR = "thumbnails"
-
-os.makedirs(THUMBNAIL_DIR, exist_ok=True)
-
-
-def generate_thumbnail(filepath):
-    pdf = fitz.open(filepath)
+def generate_thumbnail(filepath: str) -> str:
+    """
+    Generates a PNG thumbnail from the first page of the PDF (local or remote URL)
+    and uploads it to Supabase Storage, returning the public URL.
+    """
+    pdf = open_pdf_from_url_or_path(filepath)
 
     try:
         page = pdf[0]
-
         pix = page.get_pixmap(
             matrix=fitz.Matrix(1.5, 1.5)
         )
 
-        filename = (
-            f"{uuid.uuid4()}_thumbnail.png"
+        # Get PNG bytes in-memory
+        png_bytes = pix.tobytes("png")
+
+        # Upload to Supabase Storage
+        thumbnail_url = upload_to_supabase(
+            file_bytes=png_bytes,
+            filename="thumbnail.png",
+            content_type="image/png"
         )
 
-        path = os.path.join(
-            THUMBNAIL_DIR,
-            filename,
-        )
-
-        pix.save(path)
-
-        return path
+        return thumbnail_url
 
     finally:
         pdf.close()

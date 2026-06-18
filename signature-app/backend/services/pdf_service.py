@@ -1,27 +1,25 @@
 import fitz
 import os
-import shutil
 import uuid
-
-UPLOAD_DIR = "uploads"
-SIGNED_DIR = "signed_documents"
-
-os.makedirs(UPLOAD_DIR, exist_ok=True)
-os.makedirs(SIGNED_DIR, exist_ok=True)
-
+from utils.pdf_helper import open_pdf_from_url_or_path
+from services.storage import upload_to_supabase
 
 def save_pdf(file):
-    unique_filename = f"{uuid.uuid4()}_{file.filename}"
+    """
+    Saves the uploaded PDF file to Supabase Storage and returns its public URL.
+    """
+    # Read the file bytes synchronously
+    file_bytes = file.file.read()
+    # Reset seek pointer
+    file.file.seek(0)
 
-    filepath = os.path.join(
-        UPLOAD_DIR,
-        unique_filename
+    # Upload to Supabase
+    url = upload_to_supabase(
+        file_bytes=file_bytes,
+        filename=file.filename,
+        content_type="application/pdf"
     )
-
-    with open(filepath, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
-
-    return filepath
+    return url
 
 
 def hex_to_rgb(hex_str: str, default=(0.06, 0.09, 0.16)):
@@ -94,7 +92,11 @@ def get_font_info(font_value: str):
 
 
 def generate_signed_pdf(filepath, signatures):
-    pdf = fitz.open(filepath)
+    """
+    Loads PDF (local or remote URL), embeds signature custom scripts/cursives,
+    saves the finalized PDF in-memory, uploads it to Supabase, and returns the public URL.
+    """
+    pdf = open_pdf_from_url_or_path(filepath)
 
     try:
         for sig in signatures:
@@ -124,18 +126,17 @@ def generate_signed_pdf(filepath, signatures):
                 **kwargs
             )
 
-        signed_filename = (
-            f"signed_{uuid.uuid4()}.pdf"
+        # Write the PDF to binary bytes in memory
+        pdf_bytes = pdf.write()
+
+        # Upload the signed PDF bytes to Supabase Storage
+        signed_url = upload_to_supabase(
+            file_bytes=pdf_bytes,
+            filename="signed_document.pdf",
+            content_type="application/pdf"
         )
 
-        signed_filepath = os.path.join(
-            SIGNED_DIR,
-            signed_filename,
-        )
-
-        pdf.save(signed_filepath)
-
-        return signed_filepath
+        return signed_url
 
     finally:
         pdf.close()

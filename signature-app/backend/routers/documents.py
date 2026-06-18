@@ -15,7 +15,7 @@ from schemas.document import (
     SignedDocumentResponse,
     SigningLinkCreate
 )
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, RedirectResponse
 from models.user import User
 from models.signing_link import SigningLink
 import os  
@@ -58,8 +58,7 @@ async def upload_document(
     return {
         "message": "Upload Success",
         "document_id": document.id,
-        "thumbnail_url":
-            f"/thumbnails/{os.path.basename(document.thumbnail_path)}",
+        "thumbnail_url": document.thumbnail_path,
     }
 
 @router.get(
@@ -83,10 +82,7 @@ def get_my_documents(
             "id": doc.id,
             "filename": doc.filename,
             "filepath": doc.filepath,
-            "thumbnail":
-                f"/thumbnails/{os.path.basename(doc.thumbnail_path)}"
-                if doc.thumbnail_path
-                else None,
+            "thumbnail": doc.thumbnail_path,
         }
         for doc in documents
     ]
@@ -153,8 +149,7 @@ def generate_signed_document(
     return {
         "message":
             "Signed document generated successfully",
-        "path":
-            f"/signed_documents/{os.path.basename(document.signed_filepath)}",
+        "path": document.signed_filepath,
     }
 
 @router.get("/download-signed/{document_id}")
@@ -172,26 +167,13 @@ def download_signed_document(
         Document.owner_id == user.id,
     ).first()
 
-    if not document or not document.is_signed:
+    if not document or not document.is_signed or not document.signed_filepath:
         raise HTTPException(
             status_code=404,
             detail="Signed document not found",
         )
 
-    print("DOWNLOADING:", document.signed_filepath)
-    print("EXISTS:", os.path.exists(document.signed_filepath))
-
-    if os.path.exists(document.signed_filepath):
-        print(
-            "SIZE:",
-            os.path.getsize(document.signed_filepath)
-        )
-
-    return FileResponse(
-        path=document.signed_filepath,
-        filename=f"signed_{document.filename}",
-        media_type="application/pdf",
-    )
+    return RedirectResponse(url=document.signed_filepath)
 
 @router.post("/create-signing-link")
 def create_signing_link(
@@ -286,11 +268,7 @@ def get_public_preview(
     return {
         "document_id": document.id,
         "filename": document.filename,
-        "thumbnail": (
-            f"/thumbnails/{os.path.basename(document.thumbnail_path)}"
-            if document.thumbnail_path
-            else None
-        ),
+        "thumbnail": document.thumbnail_path,
         "pdf_url": f"/public-sign/file/{token}",
         "signer_email": link.signer_email,
         "expires_at": link.expires_at,
@@ -322,11 +300,7 @@ def get_public_document(
     if not document:
         raise HTTPException(status_code=404, detail="Document not found")
 
-    return FileResponse(
-        path=document.filepath,
-        filename=document.filename,
-        media_type="application/pdf",
-    )
+    return RedirectResponse(url=document.filepath)
 
 
 @router.get("/signing-links")
@@ -371,7 +345,7 @@ def get_signing_links(
             "status": link.status,
             "rejection_reason": link.rejection_reason,
             "is_signed": doc.is_signed,
-            "signed_url": f"/signed_documents/{os.path.basename(doc.signed_filepath)}" if doc.signed_filepath else None
+            "signed_url": doc.signed_filepath if doc.signed_filepath else None
         }
         for link, doc in links_with_doc
     ]

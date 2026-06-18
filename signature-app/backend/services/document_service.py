@@ -1,7 +1,4 @@
-import os
-
 from fastapi import HTTPException
-
 from models.document import Document
 from models.signature import Signature
 from models.user import User
@@ -43,25 +40,30 @@ def upload_document_service(
         )
 
         db.add(document)
-
         db.commit()
-
         db.refresh(document)
 
         return document
 
-    except Exception:
+    except Exception as e:
         db.rollback()
 
-        if saved_pdf and os.path.exists(saved_pdf):
-            os.remove(saved_pdf)
+        from services.storage import delete_from_supabase
+        if saved_pdf:
+            try:
+                delete_from_supabase(saved_pdf)
+            except Exception:
+                pass
 
-        if thumbnail and os.path.exists(thumbnail):
-            os.remove(thumbnail)
+        if thumbnail:
+            try:
+                delete_from_supabase(thumbnail)
+            except Exception:
+                pass
 
         raise HTTPException(
             status_code=500,
-            detail="Failed to upload document"
+            detail=f"Failed to upload document: {e}"
         )
 
 
@@ -110,18 +112,19 @@ def generate_signed_document_service(
 
         return document
 
-    except Exception:
+    except Exception as e:
         db.rollback()
 
-        if (
-            signed_path
-            and os.path.exists(signed_path)
-        ):
-            os.remove(signed_path)
+        from services.storage import delete_from_supabase
+        if signed_path:
+            try:
+                delete_from_supabase(signed_path)
+            except Exception:
+                pass
 
         raise HTTPException(
             status_code=500,    
-            detail="Failed to generate signed document",
+            detail=f"Failed to generate signed document: {e}",
         )   
 
 
@@ -148,26 +151,19 @@ def delete_document_service(
         )
 
     try:
-        # Delete original PDF
-        if (
-            document.filepath
-            and os.path.exists(document.filepath)
-        ):
-            os.remove(document.filepath)
+        from services.storage import delete_from_supabase
 
-        # Delete thumbnail
-        if (
-            document.thumbnail_path
-            and os.path.exists(document.thumbnail_path)
-        ):
-            os.remove(document.thumbnail_path)
+        # Delete original PDF from Supabase
+        if document.filepath:
+            delete_from_supabase(document.filepath)
 
-        # Delete signed PDF
-        if (
-            document.signed_filepath
-            and os.path.exists(document.signed_filepath)
-        ):
-            os.remove(document.signed_filepath)
+        # Delete thumbnail from Supabase
+        if document.thumbnail_path:
+            delete_from_supabase(document.thumbnail_path)
+
+        # Delete signed PDF from Supabase
+        if document.signed_filepath:
+            delete_from_supabase(document.signed_filepath)
 
         # Delete signatures
         db.query(Signature).filter(
@@ -179,9 +175,9 @@ def delete_document_service(
 
         db.commit()
 
-    except Exception:
+    except Exception as e:
         db.rollback()
         raise HTTPException(
             status_code=500,
-            detail="Failed to delete document",
+            detail=f"Failed to delete document: {e}",
         )
