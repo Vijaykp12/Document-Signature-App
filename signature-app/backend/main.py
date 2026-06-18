@@ -6,29 +6,10 @@ from routers.documents import router as document_router
 from routers.signature import router as signature_router
 from routers.audit_logs import router as audit_router
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
 
 Base.metadata.create_all(bind = engine)
 
 app = FastAPI()
-
-app.mount(
-    "/uploads",
-    StaticFiles(directory="uploads"),
-    name="uploads"
-)
-
-app.mount(
-    "/thumbnails",
-    StaticFiles(directory="thumbnails"),
-    name="thumbnails"
-)
-
-app.mount(
-    "/signed_documents",
-    StaticFiles(directory="signed_documents"),
-    name="signed_documents"
-)
 
 import os
 
