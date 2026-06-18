@@ -13,4 +13,4 @@ pydantic
 pydantic_settings
 bcrypt>=4.0.1
 resend
-supabase>=2.71.0
+supabase>=2.30.0
