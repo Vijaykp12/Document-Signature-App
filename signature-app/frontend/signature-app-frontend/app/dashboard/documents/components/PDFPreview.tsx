@@ -313,7 +313,7 @@ export default function PDFPreview({
                 </button>
                 
                 <Document
-                    file={`${BASE_URL}/${previewDoc.filepath}`}
+                    file={previewDoc.filepath.startsWith("http") ? previewDoc.filepath : `${BASE_URL}/${previewDoc.filepath}`}
                     onLoadSuccess={onDocumentLoadSuccess}
                     loading={<p className="text-cyan-400">Loading PDF...</p>}
                     error={<p className="text-red-400">Failed to load PDF</p>}

@@ -107,7 +107,7 @@ export default function PublicSignCard({
                             <div className="flex flex-1 items-center justify-center overflow-hidden rounded-2xl border border-white/8 bg-[#020617]">
                                 {document.thumbnail ? (
                                     <img
-                                        src={`${BASE_URL}${document.thumbnail}`}
+                                        src={document.thumbnail.startsWith("http") ? document.thumbnail : `${BASE_URL}${document.thumbnail}`}
                                         alt={document.filename}
                                         className="max-h-[420px] w-full object-contain"
                                     />

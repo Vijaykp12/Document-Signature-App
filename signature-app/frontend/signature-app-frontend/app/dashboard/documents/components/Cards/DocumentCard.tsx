@@ -32,7 +32,7 @@ export default function DocumentCard({
         <div className = "relative w-[250px] h-[400px] border rounded-lg m-2 hover:shadow-cyan-500 hover:translate-y-[-5px] ease-in-out transition-all p-4 bg-[#04081D] border-cyan-900/30 shadow-md">
             {document.thumbnail ? (
                 <img
-                    src={`${BASE_URL}${document.thumbnail}`}
+                    src={document.thumbnail.startsWith("http") ? document.thumbnail : `${BASE_URL}${document.thumbnail}`}
                     alt={document.filename}
                     className="w-full h-[300px] object-cover rounded-md"
                 />
