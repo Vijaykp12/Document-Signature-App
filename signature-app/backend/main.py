@@ -36,7 +36,8 @@ frontend_url = os.getenv("FRONTEND_URL")
 origins = [
     "https://vigilant-enigma-7vr96xxjqv7rfpvr-3000.app.github.dev",
     "http://localhost:3000",
-    "http://127.0.0.1:3000"
+    "http://127.0.0.1:3000",
+    "https://document-signature-app-swart.vercel.app/"
 ]
 if frontend_url:
     origins.append(frontend_url)

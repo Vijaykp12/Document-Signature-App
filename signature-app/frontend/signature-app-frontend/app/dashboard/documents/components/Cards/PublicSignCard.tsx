@@ -3,6 +3,8 @@
 import { useEffect, useState, type FormEvent } from "react";
 import type { DocumentRecord } from "../../types";
 
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
+
 interface PublicSignCardProps {
     document: DocumentRecord | null;
     isOpen: boolean;
@@ -105,7 +107,7 @@ export default function PublicSignCard({
                             <div className="flex flex-1 items-center justify-center overflow-hidden rounded-2xl border border-white/8 bg-[#020617]">
                                 {document.thumbnail ? (
                                     <img
-                                        src={`https://vigilant-enigma-7vr96xxjqv7rfpvr-8000.app.github.dev${document.thumbnail}`}
+                                        src={`${BASE_URL}${document.thumbnail}`}
                                         alt={document.filename}
                                         className="max-h-[420px] w-full object-contain"
                                     />

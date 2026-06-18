@@ -62,25 +62,34 @@ def get_font_info(font_value: str):
     if not font_value:
         return None, None
         
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    font_dir = os.path.join(current_dir, "..", "resources", "fonts")
+    
     font_value_lower = font_value.lower()
     if "pacifico" in font_value_lower:
-        path = "C:/Windows/Fonts/segoesc.ttf"
-        name = "segoesc"
+        name = "pacifico"
+        filename = "Pacifico-Regular.ttf"
     elif "great vibes" in font_value_lower:
-        path = "C:/Windows/Fonts/segoesc.ttf"
-        name = "segoesc"
+        name = "great_vibes"
+        filename = "GreatVibes-Regular.ttf"
     elif "dancing script" in font_value_lower:
-        path = "C:/Windows/Fonts/Inkfree.ttf"
-        name = "inkfree"
+        name = "dancing_script"
+        filename = "DancingScript-Regular.ttf"
     elif "alex brush" in font_value_lower:
-        path = "C:/Windows/Fonts/Gabriola.ttf"
-        name = "gabriola"
+        name = "alex_brush"
+        filename = "AlexBrush-Regular.ttf"
     else:
-        path = "C:/Windows/Fonts/segoesc.ttf"
-        name = "segoesc"
+        name = "pacifico"
+        filename = "Pacifico-Regular.ttf"
         
+    path = os.path.join(font_dir, filename)
     if os.path.exists(path):
         return name, path
+        
+    fallback_path = "C:/Windows/Fonts/segoesc.ttf"
+    if os.path.exists(fallback_path):
+        return "segoesc", fallback_path
+        
     return None, None
 
 
