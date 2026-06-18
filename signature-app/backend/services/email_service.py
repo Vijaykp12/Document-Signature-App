@@ -10,7 +10,7 @@ def send_signing_email(
     filename: str,
 ):
     resend.Emails.send({
-        "from": "onboarding@resend.dev",
+        "from": "noreply@docsign.vijaygitnew.tech",
         "to": recipient,
         "subject": f"Please sign: {filename}",
         "html": f"""

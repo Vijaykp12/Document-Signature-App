@@ -1,13 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { getSigningLinks, deleteSigningLink, type SigningLinkRecord } from "../../../lib/api";
+import { getSigningLinks, deleteSigningLink, downloadSignedDocument, generateSignedDocument, type SigningLinkRecord } from "../../../lib/api";
 
 export default function SignatureRequestsPage() {
     const [requests, setRequests] = useState<SigningLinkRecord[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [copiedToken, setCopiedToken] = useState<string | null>(null);
+    const [copiedRawToken, setCopiedRawToken] = useState<string | null>(null);
 
     const loadRequests = async () => {
         try {
@@ -41,6 +42,15 @@ export default function SignatureRequestsPage() {
         });
     };
 
+    const copyRawTokenToClipboard = (token: string) => {
+        navigator.clipboard.writeText(token).then(() => {
+            setCopiedRawToken(token);
+            setTimeout(() => setCopiedRawToken(null), 2000);
+        }).catch(err => {
+            console.error("Failed to copy token: ", err);
+        });
+    };
+
     const handleRevoke = async (linkId: number) => {
         if (!confirm("Are you sure you want to revoke this signing link? This will permanently delete the link and make it completely invalid for the recipient.")) {
             return;
@@ -56,6 +66,21 @@ export default function SignatureRequestsPage() {
         } catch (err) {
             console.error(err);
             alert("An error occurred while revoking the signing link.");
+        }
+    };
+
+    const handleGenerateSigned = async (docId: number) => {
+        try {
+            const res = await generateSignedDocument(docId);
+            if (res.success) {
+                alert("Signed document generated successfully!");
+                await loadRequests();
+            } else {
+                alert("Failed to generate signed document: " + res.message);
+            }
+        } catch (err) {
+            console.error(err);
+            alert("Error occurred while generating signed document.");
         }
     };
 
@@ -147,9 +172,36 @@ export default function SignatureRequestsPage() {
                                                     Reason: {req.rejection_reason || "No reason specified"}
                                                 </span>
                                             ) : req.status === "signed" ? (
-                                                <span className="text-green-400/80 text-xs font-sans">
-                                                    Completed successfully
-                                                </span>
+                                                <div className="flex flex-col gap-1">
+                                                    <span className="text-green-400/80 text-xs font-sans">
+                                                        Completed successfully
+                                                    </span>
+                                                    {req.signed_url ? (
+                                                        <div className="flex items-center gap-3 mt-1">
+                                                            <a
+                                                                href={`${process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000"}${req.signed_url}`}
+                                                                target="_blank"
+                                                                rel="noopener noreferrer"
+                                                                className="inline-flex items-center gap-1 text-cyan-400 hover:text-cyan-300 text-xs font-semibold hover:underline"
+                                                            >
+                                                                👁️ View PDF
+                                                            </a>
+                                                            <button
+                                                                onClick={() => downloadSignedDocument(req.document_id, req.document_filename)}
+                                                                className="inline-flex items-center gap-1 text-emerald-400 hover:text-emerald-300 text-xs font-semibold hover:underline bg-transparent border-none p-0 cursor-pointer"
+                                                            >
+                                                                📥 Download
+                                                            </button>
+                                                        </div>
+                                                    ) : (
+                                                        <button
+                                                            onClick={() => handleGenerateSigned(req.document_id)}
+                                                            className="inline-flex items-center gap-1 text-amber-400 hover:text-amber-300 text-xs font-semibold hover:underline bg-transparent border-none p-0 cursor-pointer mt-1"
+                                                        >
+                                                            ⚙️ Generate PDF
+                                                        </button>
+                                                    )}
+                                                </div>
                                             ) : (
                                                 <span className="text-slate-500 text-xs font-sans">
                                                     Waiting for signer response...
@@ -167,8 +219,20 @@ export default function SignatureRequestsPage() {
                                                         ? "bg-green-500 text-slate-950"
                                                         : "bg-cyan-500/15 text-cyan-400 hover:bg-cyan-500 hover:text-slate-950 border border-cyan-500/20"
                                                 }`}
+                                                title="Copy public guest signing URL to clipboard"
                                             >
                                                 {copiedToken === req.token ? "Copied!" : "Copy Link"}
+                                            </button>
+                                            <button
+                                                onClick={() => copyRawTokenToClipboard(req.token)}
+                                                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                                                    copiedRawToken === req.token
+                                                        ? "bg-green-500 text-slate-950"
+                                                        : "bg-cyan-500/15 text-cyan-400 hover:bg-cyan-500 hover:text-slate-950 border border-cyan-500/20"
+                                                }`}
+                                                title="Copy raw signing token"
+                                            >
+                                                {copiedRawToken === req.token ? "Copied Token!" : "Copy Token"}
                                             </button>
                                             <button
                                                 onClick={() => handleRevoke(req.id)}

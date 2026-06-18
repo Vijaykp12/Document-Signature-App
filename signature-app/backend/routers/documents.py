@@ -265,6 +265,9 @@ def get_public_preview(
         )
 
     if link.expires_at and link.expires_at < datetime.utcnow():
+        if link.status == "pending":
+            db.delete(link)
+            db.commit()
         raise HTTPException(
             status_code=410,
             detail="Signing link has expired"
@@ -302,12 +305,17 @@ def get_public_document(
     db: Session = Depends(get_db)
 ):
     link = db.query(SigningLink).filter(
-        SigningLink.token == token,
-        SigningLink.expires_at > datetime.utcnow()
+        SigningLink.token == token
     ).first()
 
     if not link:
-        raise HTTPException(status_code=404, detail="Signing link not found or expired")
+        raise HTTPException(status_code=404, detail="Signing link not found")
+
+    if link.expires_at and link.expires_at < datetime.utcnow():
+        if link.status == "pending":
+            db.delete(link)
+            db.commit()
+        raise HTTPException(status_code=410, detail="Signing link has expired")
 
     document = db.query(Document).filter(Document.id == link.document_id).first()
 
@@ -330,6 +338,21 @@ def get_signing_links(
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
+    # Lazy delete expired pending links belonging to this user's documents
+    now = datetime.utcnow()
+    expired_links = db.query(SigningLink).join(
+        Document, SigningLink.document_id == Document.id
+    ).filter(
+        Document.owner_id == user.id,
+        SigningLink.status == "pending",
+        SigningLink.expires_at < now
+    ).all()
+
+    if expired_links:
+        for link in expired_links:
+            db.delete(link)
+        db.commit()
+
     links_with_doc = db.query(SigningLink, Document).join(
         Document, SigningLink.document_id == Document.id
     ).filter(
@@ -346,7 +369,9 @@ def get_signing_links(
             "expires_at": link.expires_at,
             "is_used": link.is_used,
             "status": link.status,
-            "rejection_reason": link.rejection_reason
+            "rejection_reason": link.rejection_reason,
+            "is_signed": doc.is_signed,
+            "signed_url": f"/signed_documents/{os.path.basename(doc.signed_filepath)}" if doc.signed_filepath else None
         }
         for link, doc in links_with_doc
     ]

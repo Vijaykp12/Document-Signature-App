@@ -137,15 +137,28 @@ def public_sign(
     db: Session = Depends(get_db)
 ):
     link = db.query(SigningLink).filter(
-        SigningLink.token == token,
-        SigningLink.expires_at > datetime.utcnow(),
-        SigningLink.is_used == False
+        SigningLink.token == token
     ).first()
 
     if not link:
         raise HTTPException(
             status_code=404,
             detail="Signing link expired or invalid"
+        )
+
+    if link.expires_at and link.expires_at < datetime.utcnow():
+        if link.status == "pending":
+            db.delete(link)
+            db.commit()
+        raise HTTPException(
+            status_code=410,
+            detail="Signing link has expired"
+        )
+
+    if link.is_used:
+        raise HTTPException(
+            status_code=400,
+            detail="Signing link has already been used"
         )
 
     new_signature = Signature(
@@ -168,6 +181,21 @@ def public_sign(
     db.commit()
     db.refresh(new_signature)
 
+    # Auto-generate the signed PDF upon guest signature
+    try:
+        from models.document import Document
+        from services.pdf_service import generate_signed_pdf
+        
+        document = db.query(Document).filter(Document.id == link.document_id).first()
+        if document:
+            signatures = db.query(Signature).filter(Signature.document_id == document.id).all()
+            signed_path = generate_signed_pdf(document.filepath, signatures)
+            document.signed_filepath = signed_path
+            document.is_signed = True
+            db.commit()
+    except Exception as e:
+        print("Failed to auto-generate signed PDF upon guest signature:", e)
+
     create_audit_log(
         db=db,
         user_id=None,
@@ -188,15 +216,28 @@ def public_reject(
     db: Session = Depends(get_db)
 ):
     link = db.query(SigningLink).filter(
-        SigningLink.token == token,
-        SigningLink.expires_at > datetime.utcnow(),
-        SigningLink.is_used == False
+        SigningLink.token == token
     ).first()
 
     if not link:
         raise HTTPException(
             status_code=404,
             detail="Signing link expired or invalid"
+        )
+
+    if link.expires_at and link.expires_at < datetime.utcnow():
+        if link.status == "pending":
+            db.delete(link)
+            db.commit()
+        raise HTTPException(
+            status_code=410,
+            detail="Signing link has expired"
+        )
+
+    if link.is_used:
+        raise HTTPException(
+            status_code=400,
+            detail="Signing link has already been used"
         )
 
     link.is_used = True

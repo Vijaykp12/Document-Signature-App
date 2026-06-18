@@ -362,6 +362,8 @@ export interface SigningLinkRecord {
     is_used: boolean;
     status: string;
     rejection_reason: string | null;
+    is_signed?: boolean;
+    signed_url?: string | null;
 }
 
 export async function getSigningLinks(): Promise<ApiResult<SigningLinkRecord[]>> {
